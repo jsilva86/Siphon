@@ -1,5 +1,7 @@
 import sys
 from lib import SlitherSingleton
+from slither.core.declarations.contract import Contract, Function
+
 
 def main() -> None:
 
@@ -7,22 +9,16 @@ def main() -> None:
 
     slitherInstance = SlitherSingleton.get_slither_instance()
     slitherInstance.init_slither_instance(sys.argv[1])
-
-    contracts = slitherInstance.slither.get_contract_from_name("Test")
-    assert len(contracts) == 1
-    contract = contracts[0]
-    # Get the variable
-    test = contract.get_function_from_signature("one()")
-    assert test
-    nodes = test.nodes
-
-    for node in nodes:
-        print("node", node)
-        for s in node.ssa_local_variables_written:
-            print("local", s)
-        for s in node.ssa_state_variables_written:
-            print("storage", s)
-
-
+    
+    res = slitherInstance.get_functions_by_contract()
+    
+    for key in res:
+        print("----",key)
+        for func in res[key]:
+            print(">", func.full_name)
+            for node in func.nodes:
+                print(node)
+    
+    
 if __name__ == "__main__":
     main()

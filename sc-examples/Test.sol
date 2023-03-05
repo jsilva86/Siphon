@@ -9,7 +9,7 @@ pragma solidity >=0.7.0 <0.9.0;
  */
 contract Test {
     int damas = 69;
-    function one() public {
+    function one() private {
         int x = 35;
         if (x < 10) {
             x = 4;
@@ -26,6 +26,16 @@ contract Test {
     }
 
     function damasio() public {
+
+    }   
+}
+
+contract cidraburro {
+    int damas = 69;
+    function muitoburro() public {
+    }
+
+    function gandamaigo() public {
 
     }   
 }

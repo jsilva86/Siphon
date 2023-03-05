@@ -9,13 +9,9 @@ pragma solidity >=0.7.0 <0.9.0;
  */
 contract Test2 {
     int damas = 69;
-    function one() public {
+    function two() public {
         int x = 35;
         if (x < 10) {
-            x = 4;
-            if (x < 89) {
-                x = 3;
-            }
             for (int i = 0; i < 20; i++) {
                 x = 6;
             }
