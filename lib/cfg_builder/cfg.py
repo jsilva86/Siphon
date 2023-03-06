@@ -2,18 +2,17 @@ from typing import List
 
 from slither.core.declarations import Function, Contract
 
-from Block import Block
+from lib.cfg_builder.block import Block
 
-class CFGBuilder:
+class CFG:
     """
-    CFGBuilder class
+    CFG class
 
     """
-
-    def __init__(self, contract, function):
-        self._contract = contract
-        self._function = function
-        self._blocks = []
+    def __init__(self, contract: Contract, function: Function):
+        self._contract: Contract = contract
+        self._function: Function = function
+        self._blocks: List["Block"] = []
         
     @property
     def function(self) -> Function:

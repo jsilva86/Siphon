@@ -8,7 +8,7 @@ pragma solidity >=0.7.0 <0.9.0;
  * @custom:dev-run-script ./scripts/deploy_with_ethers.ts
  */
 contract Test {
-    int damas = 69;
+    int a = 69;
     function one() private {
         int x = 35;
         if (x < 10) {
@@ -20,7 +20,7 @@ contract Test {
                 x = 6;
             }
         } else {
-            damas = 69;
+            a = 69;
             this.damasio();
         }
     }
@@ -30,12 +30,12 @@ contract Test {
     }   
 }
 
-contract cidraburro {
-    int damas = 69;
-    function muitoburro() public {
+contract Test2 {
+    int b = 69;
+    function func1() public {
     }
 
-    function gandamaigo() public {
+    function func2() public {
 
     }   
 }

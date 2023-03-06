@@ -9,6 +9,9 @@ class Block:
     """
     def __init__(self):        
         self._instructions : List["Node"] = []
+        # variables read/write
+        # state variables read
+        # true/false/next block
     
     @property
     def instructions(self) -> List["Node"]:

@@ -1,24 +1,30 @@
 import sys
-from lib import SlitherSingleton
-from slither.core.declarations.contract import Contract, Function
 
+from slither.core.declarations.contract import Function, Contract
+
+from lib.slither.slitherSingleton import SlitherSingleton
 
 def main() -> None:
 
     # TODO allow for multiple files or dirs to be passed
 
-    slitherInstance = SlitherSingleton.get_slither_instance()
-    slitherInstance.init_slither_instance(sys.argv[1])
+    slitherSingleton = SlitherSingleton.get_slither_instance()
+    slitherSingleton.init_slither_instance(sys.argv[1])
     
-    res = slitherInstance.get_functions_by_contract()
+    get_cfg_by_function(slitherSingleton)
     
-    for key in res:
-        print("----",key)
-        for func in res[key]:
-            print(">", func.full_name)
-            for node in func.nodes:
-                print(node)
+
+def get_cfg_by_function(slitherSingleton: SlitherSingleton):
     
+    # target for analysis
+    cfg_by_function = []
+    
+    functions_by_contract = slitherSingleton.get_functions_by_contract()
+    
+    for contract_name, functions in functions_by_contract.items():
+        # retrieve the original contract information
+        contract = slitherSingleton.slither.get_contract_from_name(contract_name)[0] # assume unique name
+        print(contract.variables[0].name)
     
 if __name__ == "__main__":
     main()
