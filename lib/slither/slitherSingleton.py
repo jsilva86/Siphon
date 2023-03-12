@@ -35,7 +35,7 @@ class SlitherSingleton:
         """
         return self.slither.contracts  
     
-    def get_functions_by_contract(self) -> Dict[str, "Function"]:
+    def get_functions_by_contract(self) -> Dict[str, List["Function"]]:
         """Returns a mapping of each contract to its functions
 
         Returns:
