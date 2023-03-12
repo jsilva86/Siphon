@@ -100,7 +100,7 @@ class CFG:
             case NodeType.ENDIF:
                 #print("sair if", node, current_block)
                 
-                # FIXME this causes empty blocks if their is no instruction after it
+                # FIXME this causes empty blocks if there is no instruction after it
                 new_block = Block()
                 current_block.true_path = new_block
                 new_block.prev_block = current_block
