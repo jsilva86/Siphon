@@ -35,19 +35,29 @@ contract Test {
         if(x < 10) {
             x = 3;
             if(x < 9) {
-                x = 4;
+                x = 12;
             }
-            //x = 6;
+            x = 6;
         }
         else {
             x = 9;
         }
 
-        if (x < 99) {
-            x = 89;
+        // if (x < 99) {
+        //     x = 89;
+        //     x = 8;
+        //     x = 12;
+        // }
+        // x = 123;
+    }
+
+    function three() public {
+        int x = 35;
+        if(x < 10) {
+            x = 3;
         }
-        x = 123;
-    }   
+        x = 9;
+    }    
 }
 
 contract Test2 {
