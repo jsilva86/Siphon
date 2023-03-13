@@ -106,7 +106,6 @@ class CFG:
                 # need to verify sons[1] of if to get out of loop
                 pass
             case NodeType.ENDIF:                
-                # FIXME this causes empty blocks if there is no instruction after it
                 if node.sons:
                     if node.sons[0].type != NodeType.ENDIF:
                         new_block = Block()
@@ -147,16 +146,16 @@ class CFG:
             return
         
         file.write(
-            f'{str(block.id)}[label="{[[str(ir) for ir in instruction.irs] for instruction in block.instructions]}"];\n'
+            f'{str(block.id)}[label="{[str(instruction.expression) for instruction in block.instructions]}"];\n'
         )
 
         if block.true_path:
             file.write(f'{block.id}->{block.true_path.id}[label="True"];\n')
+            self.cfg_to_dot_recursive(file, block.true_path)
             
         if block.false_path:
             file.write(f'{block.id}->{block.false_path.id}[label="False"];\n')
+            self.cfg_to_dot_recursive(file, block.false_path)
             
-        self.cfg_to_dot_recursive(file, block.true_path)
-        self.cfg_to_dot_recursive(file, block.false_path)
             
     
