@@ -52,9 +52,9 @@ class CFG:
     
     
     def build_cfg(self):
+
         for node in self.function.nodes:
             if node.type != NodeType.ENTRYPOINT:
-                
                 # find the first node with instructions
                 self.build_cfg_recursive(node, self._head)
                 break
@@ -62,13 +62,11 @@ class CFG:
        
         self.cfg_to_dot("test.dot")
             
-        #print(self.head.instructions[0],self.head.instructions[1], self.head.instructions[2])        
             
     def build_cfg_recursive(self, node: Node, current_block: Block, is_false_path = False):
-
         match node.type:
             case NodeType.IF:
-                
+
                 # create new block and set the next block in current block to it
                 true_block = Block()
                 current_block.true_path = true_block
@@ -77,57 +75,87 @@ class CFG:
                 # add if check to current block 
                 current_block.add_instruction(node)
                 
-                self.build_cfg_recursive(node.son_true, true_block)
+                self.build_cfg_recursive(node.son_true, true_block, is_false_path)
                 
+                # avoid creating a new block if else case does not exist
                 if node.son_false.type == NodeType.ENDIF:
-                    # print(current_block.instructions[0], current_block.prev_block)
-                    # false_block = Block()
-                    # current_block.false_path = false_block
-                    # false_block.prev_block = current_block
-                    
                     self.build_cfg_recursive(node.son_false, current_block, True)
-                    #current_block.false_path = node.son_false.sons[0]
                     
-                #print(node.son_true, node.son_false)
-                                
-                # check for else case and avoid creating a block if no further instructions exist
-                if node.son_false.type != NodeType.ENDIF:
+                else:
                     false_block = Block()
                     current_block.false_path = false_block
                     false_block.prev_block = current_block
                     
                     self.build_cfg_recursive(node.son_false, false_block, is_false_path)
                     
+            case NodeType.ENDIF:
+                print(node.sons[0])                
+                if not node.sons:
+                    return
                     
-            # case NodeType.STARTLOOP:
-            #     print("Entrei loop")
-            case NodeType.STARTLOOP:
-                # start block
-                # need to verify sons[1] of if to get out of loop
-                pass
-            case NodeType.ENDIF:                
-                if node.sons:
-                    if node.sons[0].type != NodeType.ENDIF:
-                        new_block = Block()
-                        if not is_false_path:
-                            current_block.true_path = new_block
-                        else:
-                            current_block.false_path = new_block
-                        new_block.prev_block = current_block
-                        self.build_cfg_recursive(node.sons[0], new_block, is_false_path)
-                        
+                if node.sons[0].type == NodeType.ENDIF:
+                    # avoid creating a new block if next instruction is the end of an if
+                    self.build_cfg_recursive(node.sons[0], current_block, is_false_path)
+                
+                else:
+                    new_block = Block()
+                    new_block.prev_block = current_block
+                    
+                    # distinguish between end of if/else
+                    if not is_false_path:
+                        current_block.true_path = new_block
                     else:
-                        self.build_cfg_recursive(node.sons[0], current_block, is_false_path)
-            
+                        current_block.false_path = new_block
+                        
+                    self.build_cfg_recursive(node.sons[0], new_block, is_false_path)
+                        
+            case NodeType.STARTLOOP:
+                # currently ethereum only allows for 1 variable to be in the scope of the for loop
+                # https://github.com/ethereum/solidity/issues/13212
+                
+                init_node = node.fathers[0] # int i = 0
+                
+                # add instructions to current block
+                current_block.add_instruction(init_node)
+                current_block.add_instruction(node)
+                
+                self.build_cfg_recursive(node.sons[0], current_block, is_false_path)
+                
+            case NodeType.IFLOOP:
+                # create a block for the body of the loop
+                loop_block = Block()
+                current_block.true_path = loop_block
+                loop_block.prev_block = current_block
+                
+                # add if check to current block 
+                current_block.add_instruction(node)
+                
+                self.build_cfg_recursive(node.son_true, loop_block, is_false_path)
+                
+                if node.son_false.sons:
+                    # create new block and set the next block in current block to it
+                    end_block = Block()
+                    current_block.false_path = end_block
+                    end_block.prev_block = current_block
+                    
+                    self.build_cfg_recursive(node.son_false.sons[0], end_block, is_false_path)
+                
             case NodeType.ENDLOOP:
-                # go back to previous block
+                #print(node.sons[0])
                 pass
             case _:
                 # add instruction to current block
                 current_block.add_instruction(node)
-
+                        
                 if node.sons:   
-                    self.build_cfg_recursive(node.sons[0], current_block, is_false_path)
+                    # found a loop
+                    if node.sons[0].type == NodeType.IFLOOP:
+                        current_block.true_path = current_block.prev_block
+                            
+                        self.build_cfg_recursive(node.sons[0].son_false, current_block, is_false_path)
+                        
+                    else:
+                        self.build_cfg_recursive(node.sons[0], current_block, is_false_path)
                 
     def cfg_to_dot(self, filename: str):
         """
@@ -142,20 +170,25 @@ class CFG:
              
     def cfg_to_dot_recursive(self, file, block: Block):
         
+        # print("----")
+        # for instruction in block.instructions:
+        #     print(instruction)
+        
         if not block:
             return
         
         file.write(
-            f'{str(block.id)}[label="{[str(instruction.expression) for instruction in block.instructions]}"];\n'
+            f'{str(block.id)}[label="{[str(instruction) for instruction in block.instructions]}"];\n'
         )
 
         if block.true_path:
             file.write(f'{block.id}->{block.true_path.id}[label="True"];\n')
-            self.cfg_to_dot_recursive(file, block.true_path)
+            
+            if block.true_path.instructions[-1].type != NodeType.IFLOOP: 
+                self.cfg_to_dot_recursive(file, block.true_path)
             
         if block.false_path:
             file.write(f'{block.id}->{block.false_path.id}[label="False"];\n')
             self.cfg_to_dot_recursive(file, block.false_path)
             
-            
-    
+        

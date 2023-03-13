@@ -58,7 +58,15 @@ contract Test {
             }
         }
         x = 9;
-    }    
+    }
+
+    function four(int x) public {
+        for (int i = 0; i < 10; i++) {
+            // loop body
+            x += 2;
+        }
+        x = 3;
+    }      
 }
 
 contract Test2 {

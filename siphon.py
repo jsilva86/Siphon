@@ -1,7 +1,5 @@
 import sys
 
-from slither.core.declarations.contract import Function, Contract
-
 from lib.slither.slitherSingleton import SlitherSingleton
 from lib.cfg_builder.cfg import CFG
 
@@ -26,7 +24,7 @@ def get_cfg_by_function(slitherSingleton: SlitherSingleton):
         # retrieve the original contract information
         contract = slitherSingleton.slither.get_contract_from_name(contract_name)[0] # assume unique name
         for function in functions:
-            if function.name == "one":
+            if function.name == "four":
                 cfg = CFG(contract, function).build_cfg()
     
 if __name__ == "__main__":
