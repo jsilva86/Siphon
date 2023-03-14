@@ -24,6 +24,11 @@ class Block:
         # true/false/next block
         self._id: int = randint(0,10000)
         
+        self._printed: bool = False
+    
+    def __str__(self):
+        return '\n'.join(map(repr, [str(instruction) for instruction in self.instructions]))
+    
     @property
     def instructions(self) -> List["Node"]:
         """Returns the list of instructions within this block
@@ -69,6 +74,15 @@ class Block:
         """
         return self._id
     
+    @property
+    def printed(self) -> int:
+        """Returns if the block was already printed
+
+        Returns:
+            printed: Printed
+        """
+        return self._printed
+    
     @instructions.setter
     def instructions(self, value):
         self._instructions.append(value)
@@ -84,6 +98,10 @@ class Block:
     @prev_block.setter
     def prev_block(self, value):
         self._prev_block = value
+        
+    @printed.setter
+    def printed(self, value):
+        self._printed = value
         
     @id.setter
     def id(self, value):
