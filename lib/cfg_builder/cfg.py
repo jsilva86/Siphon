@@ -49,14 +49,9 @@ class CFG:
                 # find the first node with instructions
                 self.build_cfg_recursive(node, self._head)
                 break
- 
-        s = self._head
         
-        # while s != None:
-        #     print(s)
-        #     s = s.true_path
-            
-        self.cfg_to_dot("test.dot")
+        # TODO add debug flag to export
+        #self.cfg_to_dot("test.dot")
                    
     def build_cfg_recursive(
         self, 
@@ -97,7 +92,7 @@ class CFG:
         true_path_loop_depth: list["Block"] = None,
         false_path_loop_depth: list["Block"] = None
     ):
-        true_block = self.create_new_block(current_block, False, [node])
+        true_block = self.create_new_block(current_block, False, node)
         self.build_cfg_recursive(node.son_true, true_block, is_false_path, true_path_loop_depth, false_path_loop_depth)
         
         # avoid creating a new block if else case does not exist
@@ -159,7 +154,7 @@ class CFG:
         true_path_loop_depth: list["Block"] = None,
         false_path_loop_depth: list["Block"] = None
     ):
-        loop_true_block = self.create_new_block(current_block, False, [node])       
+        loop_true_block = self.create_new_block(current_block, False, node)       
         self.build_cfg_recursive(node.son_true, loop_true_block, is_false_path, true_path_loop_depth, false_path_loop_depth)
         
         if node.son_false.sons:           
@@ -174,8 +169,8 @@ class CFG:
         true_path_loop_depth: list["Block"] = None,
         false_path_loop_depth: list["Block"] = None
     ):
-        # add instruction to current block
-        current_block.add_instruction(node)
+
+        self.add_instruction_to_block(current_block, node)
         
         if node.type == NodeType.ENDLOOP:
             return
@@ -194,14 +189,13 @@ class CFG:
             else:
                 self.build_cfg_recursive(node.sons[0], current_block, is_false_path, true_path_loop_depth, false_path_loop_depth)
     
-    def create_new_block(self, current_block: Block, is_false_path = False, instructions: list["Node"] = None):
+    def create_new_block(self, current_block: Block, is_false_path = False, init_instruction: Node = None):
         new_block =  Block()
         
         self.set_block_paths(current_block, new_block, is_false_path)
         
-        if instructions:
-            for instruction in instructions:
-                current_block.add_instruction(instruction)
+        if init_instruction:
+            self.add_instruction_to_block(current_block, init_instruction)
         
         return new_block
         
@@ -212,7 +206,21 @@ class CFG:
             current_block.false_path = new_block
         new_block.prev_block = current_block
     
-                
+    def add_instruction_to_block(self, block: Block, instruction: Node):
+        # add instruction to current block
+        block.add_instruction(instruction)
+        
+        # keep track of storage accesses at a block level
+        self.check_for_state_variables(block, instruction)
+         
+    def check_for_state_variables(self, block: Block, instruction: Node):
+
+        if instruction.state_variables_written:
+            [block.add_state_variable_written(s_instruction) for s_instruction in instruction.state_variables_written]
+            
+        if instruction.state_variables_read:
+            [block.add_state_variable_read(s_instruction) for s_instruction in instruction.state_variables_read]
+         
     def cfg_to_dot(self, filename: str):
         """
             Export the function to a dot file. Useful for debugging.

@@ -1,7 +1,8 @@
-from typing import List
+from typing import List, Dict
 from random import randint
 
 from slither.core.cfg.node import Node
+from slither.core.variables.state_variable import StateVariable
 
 class Block:
     """
@@ -13,17 +14,19 @@ class Block:
         # instructions inside the block        
         self._instructions: List["Node"] = []
         
+        # storage accesses
+        self._state_variables_written: Dict[str, int] = {}
+        self._state_variables_read: Dict[str, int] = {}
+        
         # paths to follow in case of a new block or branch conditions
         self._true_path: Block = None
         self._false_path: Block = None
         self._prev_block: Block = None
 
-        # TODO maybe aggregate Node information here 
-        # variables read/write
-        # state variables read
-        # true/false/next block
-        self._id: int = randint(0,10000)
+        # TODO is this good enough?
+        self._id: int = randint(0, 10000)
         
+        # debug purposes
         self._printed: bool = False
     
     def __str__(self):
@@ -83,10 +86,20 @@ class Block:
         """
         return self._printed
     
-    @instructions.setter
-    def instructions(self, value):
-        self._instructions.append(value)
-        
+    @property
+    def state_variables_written(self) -> Dict[str, int]:
+        """
+        dict(StateVariable): State variables written
+        """
+        return dict(self._state_variables_written)
+    
+    @property
+    def state_variables_read(self) -> Dict[str, int]:
+        """
+        dict(StateVariable): State variables read
+        """
+        return dict(self._state_variables_read)
+         
     @true_path.setter
     def true_path(self, value):
         self._true_path = value
@@ -106,6 +119,22 @@ class Block:
     @id.setter
     def id(self, value):
         self._id = value
-    
+        
     def add_instruction(self, instruction: Node):
-        self._instructions.append(instruction)    
+        self._instructions.append(instruction)
+        
+    def add_state_variable_written(self, variable: StateVariable):
+        symbol = variable.name
+        
+        if variable.name in self._state_variables_written:
+            self._state_variables_written[symbol] += 1
+        else:
+            self._state_variables_written[symbol] = 1
+        
+    def add_state_variable_read(self, variable: StateVariable):
+        symbol = variable.name
+        
+        if variable.name in self._state_variables_read:
+            self._state_variables_read[symbol] += 1
+        else:
+            self._state_variables_read[symbol] = 1    

@@ -73,9 +73,14 @@ contract Test {
 }
 
 contract Test2 {
-    int b = 69;
+    int b = 32;
+    int c = 37;
     function func1() public {
         b = 2;
+        int a = c;
+        c = 68;
+        int dd = b;
+        b = 3;
     }
 
     function func2() public {
