@@ -220,7 +220,12 @@ class CFG:
             
         if instruction.state_variables_read:
             [block.add_state_variable_read(s_instruction) for s_instruction in instruction.state_variables_read]
-         
+
+    def retrieve_function_args(self):
+        # TODO implement this
+        return
+
+
     def cfg_to_dot(self, filename: str):
         """
             Export the function to a dot file. Useful for debugging.
