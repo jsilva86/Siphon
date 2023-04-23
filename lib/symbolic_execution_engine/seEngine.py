@@ -1,6 +1,8 @@
 from typing import List, Dict
 from z3 import *
 
+from slither.core.declarations import StructureContract
+
 from symbolicTable import SymbolicTable
 from cfg_builder.cfg import CFG
 
@@ -67,10 +69,11 @@ class SymbolicExecutionEngine:
         """
         return list(self._paths)
 
-    def init_symbolic_table(self, cfg: CFG):
-        for arg in cfg.retrieve_function_args():
-            # TODO implement the correct format for Z3
-            continue
+    def init_symbolic_table(self, func_args: List["StructureContract"]):
+        """Initialise the variables common to all paths
+        """
+        for arg in func_args:
+            self.symbolic_table.update(arg)
 
     def execute(self, cfg: CFG):
         """Entrypoint for the Symbolic execution
@@ -79,7 +82,8 @@ class SymbolicExecutionEngine:
         """
 
         # initialise symbolic table with the function arguments
-        self.init_symbolic_table(cfg)
+        func_args = cfg.retrieve_function_args()
+        self.init_symbolic_table(func_args)
 
         # start executing from the initial block
         self.execute_node(cfg, cfg.head, {})

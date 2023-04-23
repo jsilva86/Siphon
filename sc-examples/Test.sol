@@ -75,12 +75,22 @@ contract Test {
 contract Test2 {
     int b = 32;
     int c = 37;
-    function func1() public {
-        b = 2;
+    //myStruct s;
+
+    struct myStruct2 {
+        uint p1;
+        uint p2;
+    }
+
+    enum myEnum { SMALL, MEDIUM, LARGE }
+
+    function func1(int64 integer, myStruct2 memory s) public {
+        b = 2 + c;
         int a = c;
         c = 68;
         int dd = b;
         b = 3;
+        myStruct2 memory s2;
     }
 
     function func2() public {

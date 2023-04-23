@@ -9,7 +9,7 @@ def main() -> None:
 
     slitherSingleton = SlitherSingleton.get_slither_instance()
     slitherSingleton.init_slither_instance(sys.argv[1])
-    
+        
     get_cfg_by_function(slitherSingleton)
     
 

@@ -1,5 +1,7 @@
 from slither.core.declarations import Function, Contract
 from slither.core.cfg.node import NodeType, Node
+from slither.core.variables.local_variable import LocalVariable
+from slither.core.declarations import StructureContract
 
 from lib.cfg_builder.block import Block
 
@@ -52,6 +54,9 @@ class CFG:
         
         # TODO add debug flag to export
         #self.cfg_to_dot("test.dot")
+        
+        self.retrieve_function_args()
+        self.retrieve_user_defined_data_structures()
                    
     def build_cfg_recursive(
         self, 
@@ -221,9 +226,13 @@ class CFG:
         if instruction.state_variables_read:
             [block.add_state_variable_read(s_instruction) for s_instruction in instruction.state_variables_read]
 
-    def retrieve_function_args(self):
-        # TODO implement this
-        return
+    def retrieve_function_args(self) -> list["LocalVariable"]:
+        return self.function.parameters
+
+    def retrieve_user_defined_data_structures(self) -> list["StructureContract"]:
+        return self.contract.structures
+
+        #self.contract.enums:
 
 
     def cfg_to_dot(self, filename: str):

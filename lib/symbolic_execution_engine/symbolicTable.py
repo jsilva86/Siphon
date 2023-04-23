@@ -9,7 +9,7 @@ class SymbolicTable:
         return self._table[var_name]
 
     def update(self, var_name, value = None):
-        self._table[var_name] = value
+        self._table[var_name] = value if value is not None else var_name
 
     @property
     def table(self) -> Dict:

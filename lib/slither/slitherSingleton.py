@@ -57,6 +57,3 @@ class SlitherSingleton:
             self.get_contracts(),
             {},
         )
-        
-        
-        
