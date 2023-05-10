@@ -93,7 +93,20 @@ contract Test2 {
         myStruct2 memory s2;
     }
 
-    function func2() public {
-        b = 3;
+    function func2(uint256 x) public pure returns (uint256) {
+        uint256 result;
+
+        if (x > 10) {
+            result = x * 2;
+        } else {
+            result = x * 3;
+        }
+
+        // This code block is unreachable
+        if (result > 100) {
+            result = 100;
+        }
+
+        return result;  
     }   
 }

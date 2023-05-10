@@ -1,13 +1,14 @@
 from typing import List, Dict
 from z3 import *
 
-from slither.core.declarations import StructureContract
+from slither.core.cfg.node import NodeType, Node
 
-from symbolicTable import SymbolicTable
-from cfg_builder.cfg import CFG
+from lib.symbolic_execution_engine.symbolicTable import SymbolicTable
+from lib.cfg_builder.cfg import CFG
+from lib.cfg_builder.block import Block
+
 
 class SymbolicExecutionEngine:
-
     def __init__(self, cfg: CFG):
         # Z3 solver
         self._solver: Solver = Solver()
@@ -50,7 +51,7 @@ class SymbolicExecutionEngine:
             Symbolic Table: Symbolic Table of variables
         """
         return self._symbolic_table
-    
+
     @property
     def path_contraints(self) -> List:
         """Returns the list of current path contraints
@@ -69,24 +70,79 @@ class SymbolicExecutionEngine:
         """
         return list(self._paths)
 
-    def init_symbolic_table(self, func_args: List["StructureContract"]):
-        """Initialise the variables common to all paths
-        """
-        for arg in func_args:
-            self.symbolic_table.update(arg)
+    def init_symbolic_table(self, symbolic_table: SymbolicTable):
+        """Initialise the variables common to all paths"""
+        for arg in self.cfg.retrieve_function_args():
+            symbolic_table.update(arg)
 
-    def execute(self, cfg: CFG):
+    def execute(self):
         """Entrypoint for the Symbolic execution
 
         Executes the CFG starting from the head
         """
 
-        # initialise symbolic table with the function arguments
-        func_args = cfg.retrieve_function_args()
-        self.init_symbolic_table(func_args)
+        # Store Symbolic values for each branch
+        symbolic_table: SymbolicTable = SymbolicTable()
+
+        # intialise all of them with the function arguments
+        self.init_symbolic_table(symbolic_table)
+
+        # Store the path_contraints for each branch
+        path_constraints: List = []
 
         # start executing from the initial block
-        self.execute_node(cfg, cfg.head, {})
+        self.execute_block(self.cfg.head, symbolic_table, path_constraints)
+
+    def execute_block(
+        self, block: Block, symbolic_table: SymbolicTable, path_contraints: list
+    ):
+        for instruction in block.instructions:
+            traverse_additional_paths = self.evaluate_instruction(
+                instruction, symbolic_table, path_contraints
+            )
+
+        # this will only happen, at most, once at the end of each block
+        # saveguard against executing unreachable blocks
+        if traverse_additional_paths:
+            (
+                should_traverse_true_path,
+                should_traverse_false_path,
+            ) = traverse_additional_paths
+
+            if should_traverse_true_path:
+                # TODO update the path constraints
+                self.execute_block(block.true_path, symbolic_table, path_contraints)
+
+            if should_traverse_false_path:
+                # TODO update the path constraints
+                self.execute_block(block.false_path, symbolic_table, path_contraints)
+
+        elif block.true_path:
+            # reached the end of a block
+            # go to the next one
+            self.execute_block(block.true_path, symbolic_table, path_contraints)
+
+    def evaluate_instruction(
+        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+    ):
+        match instruction.type:
+            case NodeType.IF:
+                self.evaluate_if_case(instruction, symbolic_table, path_contraints)
+
+            case _:
+                self.evaluate_default_case(instruction, symbolic_table, path_contraints)
+
+    def evaluate_if_case(
+        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+    ):
+        # TODO check branch constraints and update list
+        pass
+
+    def evaluate_default_case(
+        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+    ):
+        # TODO check for assignments to update symbolic table
+        pass
 
     def check_path_constraints(self):
         # Get the current path constraints
@@ -95,7 +151,7 @@ class SymbolicExecutionEngine:
         # Check each branch of the path separately
         for branch in self.branches:
             # Check if the branch is reachable
-            branch_constraint = Not(And(self.path_constraints[:len(branch)]))
+            branch_constraint = Not(And(self.path_constraints[: len(branch)]))
             check_constraint = And(path_constraints, branch_constraint)
 
             if self.solver.check(check_constraint) == unsat:
