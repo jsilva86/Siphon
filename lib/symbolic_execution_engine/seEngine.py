@@ -149,109 +149,9 @@ class SymbolicExecutionEngine:
     def evaluate_if(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        operations = {}
-
         # TODO check branch constraints and update list
-        for ir in instruction.irs:
-            # print(ir)
-            pattern = r"^([^=\s]+)\s*=\s*(.*)$"
-
-            # Match the pattern against the string
-            match = re.match(pattern, str(ir))
-
-            if not match:
-                # last value was calculated
-                # CONDITION TMP_XX
-
-                pattern = r"CONDITION\s+(.+)"
-
-                # Match the pattern against the string
-                match = re.match(pattern, str(ir))
-
-                # Extract the value from the matched group
-                key_to_final_value = match.group(1).strip()
-                # print(operands[key_to_final_value])
-
-                break
-
-            # Extract the key and value from the matched groups
-            temp_var = match.group(1).replace("(bool)", "")
-            value = match.group(2)
-
-            boolean_operators = ["&&", "||", "!"]
-
-            # Handle comparison operators
-            if "<" in value:
-                operator = "<"
-            elif ">" in value:
-                operator = ">"
-            elif "==" in value:
-                operator = "=="
-            elif "<=" in value:
-                operator = "<="
-            elif ">=" in value:
-                operator = ">="
-            elif "!=" in value:
-                operator = "!="
-            elif "&&" in value:
-                operator = "&&"
-                fn = And
-            elif "||" in value:
-                operator = "||"
-                fn = Or
-            elif "!" in value:
-                operator = "!"
-                fn = Not
-            # TODO cant handle operations like x + result > 10
-
-            # Split the expression based on the operator
-            parts = value.split(operator)
-            first_operand = parts[0].strip()
-            second_operand = parts[1].strip()
-            print(temp_var, first_operand, second_operand, operator)
-
-            # if the operand is a TMP, get its real value
-            if self.is_temporary_operand(first_operand):
-                first_operand = operations.get(first_operand)
-
-            # check if the value is a symbolic_value
-            first_operand = symbolic_table.get(first_operand)
-
-            if self.is_temporary_operand(second_operand):
-                second_operand = operations.get(second_operand)
-
-            # check if the value is a symbolic_value
-            second_operand = symbolic_table.get(second_operand)
-
-            # apply the operation to the operands
-            if operator in boolean_operators:
-                if str(first_operand) != "":
-                    operations[temp_var] = fn(first_operand, second_operand)
-                else:
-                    # Not case only has one operand, the second one
-                    operations[temp_var] = fn(second_operand)
-            else:
-                operations[temp_var] = self.apply_comparison_operator(
-                    first_operand, second_operand, operator
-                )
-
-    def apply_comparison_operator(self, first_operand, second_operand, operator):
-        operators = {
-            "<": lambda x, y: x < y,
-            ">": lambda x, y: x > y,
-            "==": lambda x, y: x == y,
-            "<=": lambda x, y: x <= y,
-            ">=": lambda x, y: x >= y,
-            "!=": lambda x, y: x != y,
-        }
-
-        return operators[operator](first_operand, second_operand)
-
-    def is_temporary_operand(self, operand: str):
-        pattern = r"^TMP_"
-
-        match = re.match(pattern, operand)
-        return bool(match)
+        if_operation = self.build_if_operation(instruction, symbolic_table)
+        print(if_operation)
 
     def evaluate_expression(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
@@ -321,6 +221,121 @@ class SymbolicExecutionEngine:
         for variable, value in self.symbolic_table.items():
             if self.solver.check(value) == unsat:
                 print(f"Warning: {variable} has unsatisfiable symbolic value {value}")
+
+    def build_if_operation(self, instruction: Node, symbolic_table: SymbolicTable):
+        # store all operations being made
+        operations = {}
+
+        # TMP_XX = <some_operatio>
+        pattern = r"^([^=\s]+)\s*=\s*(.*)$"
+
+        for ir in instruction.irs:
+            # Match the pattern against the string
+            match = re.match(pattern, str(ir))
+
+            if not match:
+                # When we reach this, the operation as been completed and the value is stored in TMP_XX
+                match = re.match(r"CONDITION\s+(.+)", str(ir))
+
+                # Extract the TMP that stores the final value
+                key_to_final_value = match[1].strip()
+
+                return operations[key_to_final_value]
+
+            # Extract the temporary variable being used to store and its value
+            temp_var = match[1].replace("(bool)", "")
+            operation = match[2]
+
+            # TODO cant handle operations like x + result > 10
+            operator, fn = self.get_comparison_operator(operation)
+
+            # the operands can also be TMPs and symbolic values
+            first_operand, second_operand = self.resolve_operands(
+                operations, operation, operator, symbolic_table
+            )
+
+            # apply the operation to the operands
+            if operator in ["&&", "||", "!"]:
+                # boolean operation
+                if not str(first_operand):
+                    # Not case only has one operand, the second one
+                    operations[temp_var] = fn(second_operand)
+                else:
+                    operations[temp_var] = fn(first_operand, second_operand)
+            else:
+                # comparison operation
+                operations[temp_var] = self.apply_comparison_operator(
+                    first_operand, second_operand, operator
+                )
+
+    def resolve_operands(
+        self, operations, operation, operator, symbolic_table: SymbolicTable
+    ):
+        # Split the expression based on the operator
+        parts = operation.split(operator)
+        first_operand = parts[0].strip()
+        second_operand = parts[1].strip()
+
+        # if the operand is a TMP, get its real value
+        if self.is_temporary_operand(first_operand):
+            first_operand = operations.get(first_operand)
+
+        # check if the value is a symbolic_value
+        first_operand = symbolic_table.get(first_operand)
+
+        if self.is_temporary_operand(second_operand):
+            second_operand = operations.get(second_operand)
+
+        # check if the value is a symbolic_value
+        second_operand = symbolic_table.get(second_operand)
+
+        # return the enhanced operands
+        return first_operand, second_operand
+
+    def get_comparison_operator(self, operation):
+        # Handle comparison operators
+        fn = None
+        if "<" in operation:
+            operator = "<"
+        elif ">" in operation:
+            operator = ">"
+        elif "==" in operation:
+            operator = "=="
+        elif "<=" in operation:
+            operator = "<="
+        elif ">=" in operation:
+            operator = ">="
+        elif "!=" in operation:
+            operator = "!="
+        elif "&&" in operation:
+            operator = "&&"
+            fn = And
+        elif "||" in operation:
+            operator = "||"
+            fn = Or
+        elif "!" in operation:
+            operator = "!"
+            fn = Not
+
+        return operator, fn
+
+    def apply_comparison_operator(self, first_operand, second_operand, operator):
+        operators = {
+            "<": lambda x, y: x < y,
+            ">": lambda x, y: x > y,
+            "==": lambda x, y: x == y,
+            "<=": lambda x, y: x <= y,
+            ">=": lambda x, y: x >= y,
+            "!=": lambda x, y: x != y,
+        }
+
+        return operators[operator](first_operand, second_operand)
+
+    def is_temporary_operand(self, operand: str):
+        pattern = r"^TMP_"
+
+        match = re.match(pattern, operand)
+        return bool(match)
 
     def update_with_prev_value(
         self, current_sym_value, operation: str, assignment: str
