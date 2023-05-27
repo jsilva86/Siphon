@@ -84,20 +84,17 @@ contract Test2 {
 
     enum myEnum { SMALL, MEDIUM, LARGE }
 
-    function func1(int64 integer, myStruct2 memory s) public {
-        b = 2 + c;
-        int a = c;
-        c = 68;
-        int dd = b;
-        b = 3;
-        myStruct2 memory s2;
+    function func1() public returns (uint256) {
+        return 1;
     }
 
-    function func2(uint256 x) public pure returns (uint256) {
-        uint256 result;
+    function func2(uint256 x) public returns (uint256) {
+        uint256 result = 5 + x + 12;
+        result += 2;
 
-        if (x > 10) {
-            result = x * 2;
+        if ((x > 10 && x < 5) && !(result != 5)) {
+            result =  x + 2;
+            func1();
         } else {
             result = x * 3;
         }
