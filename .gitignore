@@ -128,3 +128,5 @@ dmypy.json
 
 # Dot files
 *.dot
+
+z3-test.py

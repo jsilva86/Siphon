@@ -93,7 +93,7 @@ contract Test2 {
         result += 2;
         uint256 result2 = result;
 
-        if ((x > 10 && x < 5) && !(result != 5)) {
+        if ((x > 10 && x < 5) || !(result != 5)) {
             result =  x + 2;
             func1();
         } else {
@@ -101,7 +101,7 @@ contract Test2 {
         }
 
         // This code block is unreachable
-        if (result > 100) {
+        if (result + x > 100) {
             result = 100;
         }
 

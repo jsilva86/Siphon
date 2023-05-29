@@ -224,7 +224,7 @@ class SymbolicExecutionEngine:
         # store all operations being made
         operations = {}
 
-        # TMP_XX = <some_operatio>
+        # TMP_XX = <some_operation>
         pattern = r"^([^=\s]+)\s*=\s*(.*)$"
 
         for ir in instruction.irs:
@@ -241,11 +241,22 @@ class SymbolicExecutionEngine:
                 return operations[key_to_final_value]
 
             # Extract the temporary variable being used to store and its value
-            temp_var = match[1].replace("(bool)", "")
+            tmp_var = re.sub(r"\([^()]*\)", "", match[1])  # ignore the type of the TMP
             operation = match[2]
 
-            # TODO cant handle operations like x + result > 10
-            operator, fn = self.get_comparison_operator(operation)
+            # complex operands use TMPs to store their values before comparison
+            # TMP_14(uint256) = result (c)+ x
+            if any(operator in operation for operator in ["+", "-", "*", "/"]):
+                # ignore if a variable is constant
+                # TODO check if there are more variations
+                assignment = operation.replace("(c)", "")
+
+                tmp_assignment = self.build_symbolic_value(assignment, symbolic_table)
+                operations[tmp_var] = tmp_assignment
+                continue
+
+            # all the other cases are operations
+            operator, fn = self.get_operator(operation)
 
             # the operands can also be TMPs and symbolic values
             first_operand, second_operand = self.resolve_operands(
@@ -257,12 +268,12 @@ class SymbolicExecutionEngine:
                 # boolean operation
                 if not str(first_operand):
                     # Not case only has one operand, the second one
-                    operations[temp_var] = fn(second_operand)
+                    operations[tmp_var] = fn(second_operand)
                 else:
-                    operations[temp_var] = fn(first_operand, second_operand)
+                    operations[tmp_var] = fn(first_operand, second_operand)
             else:
                 # comparison operation
-                operations[temp_var] = self.apply_comparison_operator(
+                operations[tmp_var] = self.apply_comparison_operator(
                     first_operand, second_operand, operator
                 )
 
@@ -290,7 +301,7 @@ class SymbolicExecutionEngine:
         # return the enhanced operands
         return first_operand, second_operand
 
-    def get_comparison_operator(self, operation):
+    def get_operator(self, operation):
         # Handle comparison operators
         fn = None
         if "<" in operation:
