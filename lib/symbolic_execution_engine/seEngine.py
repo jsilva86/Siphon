@@ -165,7 +165,7 @@ class SymbolicExecutionEngine:
         current_sym_value = symbolic_table.get(variable)
 
         new_sym_value = self.update_with_prev_value(
-            current_sym_value, operation, assignment
+            current_sym_value, operation, assignment, symbolic_table
         )
 
         symbolic_table.update(variable, new_sym_value)
@@ -179,7 +179,7 @@ class SymbolicExecutionEngine:
         # if the variable is initialised store its value
         if instruction.variable_declaration.expression:
             symbolic_value = self.build_symbolic_value(
-                str(instruction.variable_declaration.expression)
+                str(instruction.variable_declaration.expression), symbolic_table
             )
 
             symbolic_table.update(instruction.variable_declaration.name, symbolic_value)
@@ -187,8 +187,6 @@ class SymbolicExecutionEngine:
     def evaluate_default(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        # TODO check for assignments to update symbolic table
-        # print("passei por uma inst", instruction, instruction.type)
         pass
 
     def check_path_constraints(
@@ -338,9 +336,13 @@ class SymbolicExecutionEngine:
         return bool(match)
 
     def update_with_prev_value(
-        self, current_sym_value, operation: str, assignment: str
+        self,
+        current_sym_value,
+        operation: str,
+        assignment: str,
+        symbolic_table: SymbolicTable,
     ):
-        assign_symb_value = self.build_symbolic_value(assignment)
+        assign_symb_value = self.build_symbolic_value(assignment, symbolic_table)
 
         if operation == "*=":
             return simplify(current_sym_value * assign_symb_value)
@@ -353,7 +355,7 @@ class SymbolicExecutionEngine:
         elif operation == "=":
             return simplify(assign_symb_value)
 
-    def build_symbolic_value(self, expression: str):
+    def build_symbolic_value(self, expression: str, symbolic_table: SymbolicTable):
         result_list = []
 
         # find all the tokens in the expressions
@@ -368,8 +370,8 @@ class SymbolicExecutionEngine:
                 result_list.append(RealVal(token))
             else:
                 result_list.append(
-                    Int(token)
-                )  # FIXME the symbolic value already exists we need to extract its value from the sym table
+                    symbolic_table.get(token)
+                )  # if the value is symbolic, return its value
 
         result = result_list[0]
 

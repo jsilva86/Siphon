@@ -91,6 +91,7 @@ contract Test2 {
     function func2(uint256 x) public returns (uint256) {
         uint256 result = 5 + x + 12;
         result += 2;
+        uint256 result2 = result;
 
         if ((x > 10 && x < 5) && !(result != 5)) {
             result =  x + 2;
