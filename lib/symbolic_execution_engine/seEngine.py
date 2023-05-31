@@ -1,6 +1,7 @@
 from typing import List, Dict
 from z3 import *
 import re
+from copy import deepcopy
 
 from slither.core.cfg.node import NodeType, Node
 from slither.core.expressions.expression import Expression
@@ -107,30 +108,64 @@ class SymbolicExecutionEngine:
         # this will only happen, at most, once at the end of each block
         # saveguard against executing unreachable blocks
         if traverse_additional_paths:
-            (
-                should_traverse_true_path,
-                should_traverse_false_path,
-            ) = traverse_additional_paths
-
-            if should_traverse_true_path:
-                # TODO update the path constraints
-                self.execute_block(block.true_path, symbolic_table, path_contraints)
-
-            if should_traverse_false_path:
-                # TODO update the path constraints
-                self.execute_block(block.false_path, symbolic_table, path_contraints)
-
+            self.unpack_and_execute_next_block(
+                traverse_additional_paths, block, symbolic_table, path_contraints
+            )
         elif block.true_path:
             # reached the end of a block
             # go to the next one
             self.execute_block(block.true_path, symbolic_table, path_contraints)
+
+    def unpack_and_execute_next_block(
+        self, traverse_additional_paths, block, symbolic_table, path_contraints
+    ):
+        should_traverse_true_path = traverse_additional_paths.get(
+            "should_traverse_true_path"
+        )
+
+        true_path_constraint = traverse_additional_paths.get("true_path_constraint")
+
+        should_traverse_false_path = traverse_additional_paths.get(
+            "should_traverse_false_path"
+        )
+
+        false_path_constraint = traverse_additional_paths.get("false_path_constraint")
+
+        # print(
+        #     should_traverse_true_path,
+        #     true_path_constraint,
+        #     should_traverse_false_path,
+        #     false_path_constraint,
+        # )
+        if should_traverse_true_path:
+            # TODO update the path constraints
+
+            new_path_constraints = deepcopy(path_contraints)
+            new_path_constraints.append(true_path_constraint)
+
+            new_symbolic_table = deepcopy(symbolic_table)
+
+            self.execute_block(
+                block.true_path, new_symbolic_table, new_path_constraints
+            )
+
+        if should_traverse_false_path and block.false_path:
+            # TODO update the path constraints
+            new_path_constraints = deepcopy(path_contraints)
+            new_path_constraints.append(false_path_constraint)
+
+            new_symbolic_table = deepcopy(symbolic_table)
+
+            self.execute_block(
+                block.false_path, new_symbolic_table, new_path_constraints
+            )
 
     def evaluate_instruction(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
         match instruction.type:
             case NodeType.IF:
-                self.evaluate_if(instruction, symbolic_table, path_contraints)
+                return self.evaluate_if(instruction, symbolic_table, path_contraints)
 
             case NodeType.VARIABLE:
                 self.evaluate_variable_declaration(
@@ -151,7 +186,22 @@ class SymbolicExecutionEngine:
     ):
         # TODO check branch constraints and update list
         if_operation = self.build_if_operation(instruction, symbolic_table)
-        print(if_operation)
+        # if branch
+        is_true_path_sat = self.check_path_constraints(if_operation, path_contraints)
+
+        # else branch
+        if_not_operation = Not(if_operation)
+
+        is_false_path_sat = self.check_path_constraints(
+            if_not_operation, path_contraints
+        )
+
+        return {
+            "should_traverse_true_path": is_true_path_sat,
+            "should_traverse_false_path": is_false_path_sat,
+            "true_path_constraint": if_operation,
+            "false_path_constraint": if_not_operation,
+        }
 
     def evaluate_expression(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
@@ -191,34 +241,17 @@ class SymbolicExecutionEngine:
 
     def check_path_constraints(
         self,
-        symbolic_table: SymbolicTable,
+        branch_condition,
         path_contraints: list,
     ):
         # Get the current path constraints
-        path_constraints = And(self.path_constraints)
+        # TODO maybe store it directly like this
+        path_constraints = And(path_contraints)
 
-        # Check each branch of the path separately
-        for branch in self.branches:
-            # Check if the branch is reachable
-            branch_constraint = Not(And(self.path_constraints[: len(branch)]))
-            check_constraint = And(path_constraints, branch_constraint)
+        # Check if the branch is reachable
+        check_constraint = And(path_constraints, branch_condition)
 
-            if self.solver.check(check_constraint) == unsat:
-                # If the branch is not reachable, add a negation of its condition to the path constraints
-                negation_constraint = Not(branch[-1])
-                self.path_constraints.append(negation_constraint)
-            else:
-                # If the branch is reachable, add its condition to the path constraints
-                self.path_constraints.append(branch[-1])
-
-        # Update the symbolic table with the new path constraints
-        for variable, value in self.symbolic_table.items():
-            self.symbolic_table[variable] = simplify(And(value, path_constraints))
-
-        # Check if any of the symbolic values are unsatisfiable
-        for variable, value in self.symbolic_table.items():
-            if self.solver.check(value) == unsat:
-                print(f"Warning: {variable} has unsatisfiable symbolic value {value}")
+        return self.solver.check(check_constraint) == sat
 
     def build_if_operation(self, instruction: Node, symbolic_table: SymbolicTable):
         # store all operations being made

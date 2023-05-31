@@ -130,7 +130,7 @@ class CFG:
         self.build_cfg_recursive(
             node.son_true,
             true_block,
-            is_false_path,
+            False,
             true_path_loop_depth,
             false_path_loop_depth,
         )
@@ -175,7 +175,7 @@ class CFG:
             self.build_cfg_recursive(
                 node.sons[0],
                 next_block,
-                is_false_path,
+                False,
                 true_path_loop_depth,
                 false_path_loop_depth,
             )

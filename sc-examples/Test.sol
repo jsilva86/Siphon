@@ -37,7 +37,7 @@ contract Test {
             if(x < 9) {
                 x = 12;
             }
-            //x = 6;
+            x = 6;
         }
         else {
             x = 9;
@@ -106,5 +106,25 @@ contract Test2 {
         }
 
         return result;  
+    }
+
+    function func3(uint256 x) public pure returns (uint256) {
+        uint256 result;
+
+        if (x > 100) {
+            result = x * 2;
+        } else if (x > 50){
+            result = x * 3;
+        }
+        else if (x > 30){
+            result = x * 4;
+        }
+
+        // This code block is unreachable
+        if (result < 10) {
+            result = 10;
+        }
+
+        return result;
     }   
 }
