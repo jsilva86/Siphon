@@ -100,6 +100,11 @@ class SymbolicExecutionEngine:
     def execute_block(
         self, block: Block, symbolic_table: SymbolicTable, path_contraints: list
     ):
+        print("BLOCK ID", block.id)
+
+        if block.prev_block:
+            print("PREV BLOCK ID", block.prev_block.id)
+
         for instruction in block.instructions:
             traverse_additional_paths = self.evaluate_instruction(
                 instruction, symbolic_table, path_contraints

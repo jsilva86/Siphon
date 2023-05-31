@@ -144,7 +144,7 @@ class CFG:
             self.build_cfg_recursive(
                 node.son_false,
                 false_block,
-                is_false_path,
+                True,
                 true_path_loop_depth,
                 false_path_loop_depth,
             )
@@ -159,7 +159,7 @@ class CFG:
     ):
         if not node.sons:
             return
-
+        print("aqui", is_false_path)
         if node.sons[0].type == NodeType.ENDIF:
             # avoid creating a new block if next instruction is the end of an if
             self.build_cfg_recursive(
@@ -172,6 +172,7 @@ class CFG:
 
         else:
             next_block = self.create_new_block(current_block, is_false_path)
+            print("novo", next_block.id)
             self.build_cfg_recursive(
                 node.sons[0],
                 next_block,
@@ -322,8 +323,6 @@ class CFG:
     def retrieve_user_defined_data_structures(self) -> list["StructureContract"]:
         return self.contract.structures
 
-        # self.contract.enums:
-
     def cfg_to_dot(self, filename: str):
         """
             Export the function to a dot file. Useful for debugging.
@@ -340,7 +339,7 @@ class CFG:
             return
 
         file.write(
-            f'{str(block.id)}[label="{[str(instruction) for instruction in block.instructions]}"];\n'
+            f'{str(block.id)}[label="{block.id} {[str(instruction) for instruction in block.instructions]}"];\n'
         )
 
         if block.true_path:
