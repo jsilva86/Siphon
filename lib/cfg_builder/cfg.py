@@ -1,3 +1,5 @@
+from typing import Dict
+
 from slither.core.declarations import Function, Contract
 from slither.core.cfg.node import NodeType, Node
 from slither.core.variables.local_variable import LocalVariable
@@ -18,6 +20,12 @@ class CFG:
 
         # starting block
         self._head: Block = Block()
+
+        # visited nodes
+        self._visited_nodes: dict = {}
+
+        # visited blocks
+        self._visited_blocks: dict = {}
 
     @property
     def function(self) -> Function:
@@ -44,6 +52,24 @@ class CFG:
             head: head of the cfg
         """
         return self._head
+
+    @property
+    def visited_nodes(self) -> Dict:
+        """Returns the mapping of visited nodes to their blocks
+
+        Returns:
+            Dict(vars): Dict of visited nodes to their blocks
+        """
+        return self._visited_nodes
+
+    @property
+    def visited_blocks(self) -> Dict:
+        """Returns the mapping of visited blocks to their ids
+
+        Returns:
+            Dict(vars): Dict of visited blocks to their ids
+        """
+        return self._visited_blocks
 
     def build_cfg(self):
         for node in self.function.nodes:
@@ -159,7 +185,7 @@ class CFG:
     ):
         if not node.sons:
             return
-        print("aqui", is_false_path)
+
         if node.sons[0].type == NodeType.ENDIF:
             # avoid creating a new block if next instruction is the end of an if
             self.build_cfg_recursive(
@@ -170,9 +196,26 @@ class CFG:
                 false_path_loop_depth,
             )
 
+        # check if a block was already created in another path
+        elif created_block_id := self.visited_nodes.get(node.sons[0].node_id):
+            created_block = self.visited_blocks[created_block_id]
+
+            if is_false_path and current_block.instructions[-1].type == NodeType.IF:
+                # else cases are in the false_path but not its subsequent instructions
+                current_block.false_path = created_block
+            else:
+                current_block.true_path = created_block
+
+            # self.build_cfg_recursive(
+            #     node.sons[0],
+            #     created_block,
+            #     False,
+            #     true_path_loop_depth,
+            #     false_path_loop_depth,
+            # )
+
         else:
             next_block = self.create_new_block(current_block, is_false_path)
-            print("novo", next_block.id)
             self.build_cfg_recursive(
                 node.sons[0],
                 next_block,
@@ -278,8 +321,9 @@ class CFG:
 
     def create_new_block(
         self, current_block: Block, is_false_path=False, init_instruction: Node = None
-    ):
+    ) -> Block:
         new_block = Block()
+        self.visited_blocks[new_block.id] = new_block
 
         self.set_block_paths(current_block, new_block, is_false_path)
 
@@ -303,6 +347,10 @@ class CFG:
 
         # keep track of storage accesses at a block level
         self.check_for_state_variables(block, instruction)
+
+        # store the block where the instruction was first inserted
+        if instruction.node_id not in self.visited_nodes:
+            self.visited_nodes[instruction.node_id] = block.id
 
     def check_for_state_variables(self, block: Block, instruction: Node):
         if instruction.state_variables_written:

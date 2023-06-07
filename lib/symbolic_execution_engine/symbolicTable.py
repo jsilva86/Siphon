@@ -4,11 +4,11 @@ from z3 import *
 
 class SymbolicTable:
     def __init__(self):
-        self._table = {}
+        self._table: dict = {}
 
     def get(self, var_name: str):
         """Fetch the value of a symbol"""
-        return self._table.get(var_name, var_name)
+        return self.table.get(var_name, var_name)
 
     def update(self, var_name: str, value=None):
         """Update the value of a symbol"""
@@ -21,4 +21,4 @@ class SymbolicTable:
         Returns:
             Dict(vars): Dict of variables
         """
-        return dict(self._table)
+        return self._table

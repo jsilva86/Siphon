@@ -37,7 +37,11 @@ contract Test {
             if(x < 9) {
                 x = 12;
             }
+            else {
+                x = 1234;
+            }
             x = 6;
+            x = 5566;
         }
         else {
             x = 9;
@@ -45,6 +49,7 @@ contract Test {
             if(x < 67) {
                 x = 8;
             }
+            x = 2;
         }
 
         x = 123;
@@ -113,17 +118,21 @@ contract Test2 {
 
         if (x > 100) {
             result = x * 2;
-        } else if (x > 50){
-            result = x * 3;
-        }
-        else if (x > 30){
+
+            // if (x < 3) {
+            //     result = 1;
+            // } else {
+            //     result = 2;
+            // }
+        } 
+        else{
             result = x * 4;
         }
 
         // This code block is unreachable
-        if (result < 10) {
-            result = 10;
-        }
+        // if (result < 10) {
+        //     result = 10;
+        // }
 
         return result;
     }   
