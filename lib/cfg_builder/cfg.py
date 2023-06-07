@@ -197,6 +197,8 @@ class CFG:
             )
 
         # check if a block was already created in another path
+        # avoid recursively checking an already traversed path,
+        # instead just connect the path to the existing block
         elif created_block_id := self.visited_nodes.get(node.sons[0].node_id):
             created_block = self.visited_blocks[created_block_id]
 
@@ -205,14 +207,6 @@ class CFG:
                 current_block.false_path = created_block
             else:
                 current_block.true_path = created_block
-
-            # self.build_cfg_recursive(
-            #     node.sons[0],
-            #     created_block,
-            #     False,
-            #     true_path_loop_depth,
-            #     false_path_loop_depth,
-            # )
 
         else:
             next_block = self.create_new_block(current_block, is_false_path)
