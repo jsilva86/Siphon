@@ -81,6 +81,8 @@ contract Test2 {
     int b = 32;
     int c = 37;
     //myStruct s;
+    uint256 s_result;
+    uint256 public constant MAX_ITER = 100;
 
     struct myStruct2 {
         uint p1;
@@ -116,24 +118,22 @@ contract Test2 {
     function func3(uint256 x) public pure returns (uint256) {
         uint256 result;
 
-        if (x > 100) {
-            result = x * 2;
-
-            // if (x < 3) {
-            //     result = 1;
-            // } else {
-            //     result = 2;
-            // }
+        if (x < 100) {
+            if(x < 200) {
+                result = x * 2;
+            }
         } 
-        else{
-            result = x * 4;
-        }
-
-        // This code block is unreachable
-        // if (result < 10) {
-        //     result = 10;
-        // }
 
         return result;
     }   
+
+     function func4(uint256 x) public returns (uint256) {
+        for(uint256 j = 0; j < MAX_ITER; j++) {
+            s_result += x * j;
+        }
+        
+        return s_result;
+
+
+    }  
 }

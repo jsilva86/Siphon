@@ -79,6 +79,18 @@ class SymbolicExecutionEngine:
         for arg in self.cfg.retrieve_function_args():
             symbolic_table.update(arg.name)
 
+        for variable in self.cfg.retrieve_storage_variables():
+            # add the value to the symbolic table
+            symbolic_table.update(variable.name)
+
+            # if the variable is initialised store its value
+            if variable.expression:
+                symbolic_value = self.build_symbolic_value(
+                    str(variable.expression), symbolic_table
+                )
+
+                symbolic_table.update(variable.name, symbolic_value)
+
     def execute(self):
         """Entrypoint for the Symbolic execution
 
@@ -88,7 +100,7 @@ class SymbolicExecutionEngine:
         # Store Symbolic values for each branch
         symbolic_table: SymbolicTable = SymbolicTable()
 
-        # intialise all of them with the function arguments
+        # intialise the symbolic table with the function arguments and storage variables
         self.init_symbolic_table(symbolic_table)
 
         # Store the path_contraints for each branch
@@ -119,6 +131,10 @@ class SymbolicExecutionEngine:
     def unpack_and_execute_next_block(
         self, traverse_additional_paths, block, symbolic_table, path_contraints
     ):
+        """
+        Avoid executing unreachable paths
+        """
+
         should_traverse_true_path = traverse_additional_paths.get(
             "should_traverse_true_path"
         )
@@ -131,15 +147,7 @@ class SymbolicExecutionEngine:
 
         false_path_constraint = traverse_additional_paths.get("false_path_constraint")
 
-        # print(
-        #     should_traverse_true_path,
-        #     true_path_constraint,
-        #     should_traverse_false_path,
-        #     false_path_constraint,
-        # )
         if should_traverse_true_path:
-            # TODO update the path constraints
-
             new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(true_path_constraint)
 
@@ -150,7 +158,7 @@ class SymbolicExecutionEngine:
             )
 
         if should_traverse_false_path and block.false_path:
-            # TODO update the path constraints
+            # else case is optional
             new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(false_path_constraint)
 
@@ -178,23 +186,38 @@ class SymbolicExecutionEngine:
             case _:
                 self.evaluate_default(instruction, symbolic_table, path_contraints)
 
-        # for v in symbolic_table.table.items():
-        #     print(v)
-
     def evaluate_if(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        # TODO check branch constraints and update list
         if_operation = self.build_if_operation(instruction, symbolic_table)
-        # if branch
-        is_true_path_sat = self.check_path_constraints(if_operation, path_contraints)
-
-        # else branch
         if_not_operation = Not(if_operation)
+        print("-----Analising-----", if_operation)
 
+        # PATTERN 1: Redundant code
+        # check if any of the branches are unsatisfiable
+
+        is_true_path_sat = self.check_path_constraints(if_operation, path_contraints)
         is_false_path_sat = self.check_path_constraints(
             if_not_operation, path_contraints
         )
+
+        print("Is if sat", is_true_path_sat)
+        print("Is else sat", is_false_path_sat)
+
+        # PATTERN 2: Opaque predicates
+        # check if any of the branch conditions are tautologies,
+        # prove that the negation of the implication is unsat
+
+        premise = And(path_contraints)
+
+        if_implication = Implies(premise, if_operation)
+        if_not_implication = Implies(premise, if_not_operation)
+
+        is_if_opaque = self.solver.check(Not(if_implication)) == unsat
+        is_if_not_opaque = self.solver.check(Not(if_not_implication)) == unsat
+
+        print("Is if Opaque", is_if_opaque)
+        print("Is else Opaque", is_if_not_opaque)
 
         return {
             "should_traverse_true_path": is_true_path_sat,
@@ -436,14 +459,12 @@ class SymbolicExecutionEngine:
         return simplify(result)
 
     def is_numeric(self, s: str):
-        # help parse out ints and floats from a string
         try:
-            return int(s)
+            # Attempt to parse the string as an integer or float
+            float(s)
+            return True
         except ValueError:
-            try:
-                return float(s)
-            except ValueError:
-                return None
+            return False
 
     def split_assignment(self, expression: Expression):
         # split assignments, like so

@@ -3,6 +3,7 @@ from typing import Dict
 from slither.core.declarations import Function, Contract
 from slither.core.cfg.node import NodeType, Node
 from slither.core.variables.local_variable import LocalVariable
+from slither.core.variables.state_variable import StateVariable
 from slither.core.declarations import StructureContract
 
 from lib.cfg_builder.block import Block
@@ -80,9 +81,6 @@ class CFG:
 
         # TODO add debug flag to export
         self.cfg_to_dot("test.dot")
-
-        self.retrieve_function_args()
-        self.retrieve_user_defined_data_structures()
 
     def build_cfg_recursive(
         self,
@@ -233,8 +231,8 @@ class CFG:
         init_node = node.fathers[0]  # int i = 0
 
         # add instructions to current block
-        current_block.add_instruction(init_node)
         current_block.add_instruction(node)
+        current_block.add_instruction(init_node)
 
         # add current loops
         true_path_loop_depth.append(current_block)
@@ -361,6 +359,9 @@ class CFG:
 
     def retrieve_function_args(self) -> list["LocalVariable"]:
         return self.function.parameters
+
+    def retrieve_storage_variables(self) -> list["StateVariable"]:
+        return self.contract.variables
 
     def retrieve_user_defined_data_structures(self) -> list["StructureContract"]:
         return self.contract.structures
