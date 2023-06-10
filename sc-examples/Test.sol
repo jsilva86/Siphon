@@ -127,11 +127,10 @@ contract Test2 {
     }   
 
      function func4(uint256 x) public returns (uint256) {
-        // for(uint256 j = 0; j < MAX_ITER; j++) {
-        //     s_result += x * j;
-        // }
-        x--;
-        x = x + 2;
+        for(uint256 j = 0; j < MAX_ITER; j++) {
+            s_result += x * j;
+        }
+  
         return s_result;
 
 

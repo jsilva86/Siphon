@@ -233,15 +233,12 @@ class SymbolicExecutionEngine:
             # TODO these might be func calls
             return
         variable, operation, assignment = parts
-        print("FORA DO SPLIT", variable, operation, assignment)
 
         current_sym_value = symbolic_table.get(variable)
 
         new_sym_value = self.update_with_prev_value(
             current_sym_value, operation, assignment, symbolic_table
         )
-
-        print("new sym value", variable, new_sym_value)
 
         symbolic_table.update(variable, new_sym_value)
 
