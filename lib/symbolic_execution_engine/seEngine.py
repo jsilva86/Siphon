@@ -232,14 +232,16 @@ class SymbolicExecutionEngine:
         if not (parts := self.split_assignment(instruction.expression)):
             # TODO these might be func calls
             return
-
         variable, operation, assignment = parts
+        print("FORA DO SPLIT", variable, operation, assignment)
 
         current_sym_value = symbolic_table.get(variable)
 
         new_sym_value = self.update_with_prev_value(
             current_sym_value, operation, assignment, symbolic_table
         )
+
+        print("new sym value", variable, new_sym_value)
 
         symbolic_table.update(variable, new_sym_value)
 
@@ -302,7 +304,7 @@ class SymbolicExecutionEngine:
 
             # complex operands use TMPs to store their values before comparison
             # TMP_14(uint256) = result (c)+ x
-            if any(operator in operation for operator in ["+", "-", "*", "/"]):
+            if any(operator in operation for operator in ["+", "-", "*", "/", "%"]):
                 # ignore if a variable is constant
                 # TODO check if there are more variations
                 assignment = operation.replace("(c)", "")
@@ -419,6 +421,8 @@ class SymbolicExecutionEngine:
             return simplify(current_sym_value - assign_symb_value)
         elif operation == "/=":
             return simplify(current_sym_value / assign_symb_value)
+        elif operation == "%=":
+            return simplify(current_sym_value % assign_symb_value)
         elif operation == "=":
             return simplify(assign_symb_value)
 
@@ -427,11 +431,11 @@ class SymbolicExecutionEngine:
 
         # find all the tokens in the expressions
         # operations, constants, variables and function calls
-        tokens = re.findall(r"\d+|\w+\(?\)?|[+\-*/]", expression)
+        tokens = re.findall(r"\d+|\w+\(?\)?|[+\-*/%]", expression)
 
         # convert all tokens to their correct format
         for token in tokens:
-            if token in ["+", "-", "*", "/"]:
+            if token in ["+", "-", "*", "/", "%"]:
                 result_list.append(token)
             elif self.is_numeric(token):
                 result_list.append(RealVal(token))
@@ -454,6 +458,8 @@ class SymbolicExecutionEngine:
                 result *= value
             elif operator == "/":
                 result /= value
+            elif operator == "%":
+                result %= value
 
         # return the simplified results
         return simplify(result)
@@ -466,11 +472,34 @@ class SymbolicExecutionEngine:
         except ValueError:
             return False
 
-    def split_assignment(self, expression: Expression):
-        # split assignments, like so
-        # x += 2
-        # x = y + 3
+    def split_assignment(self, expression: Expression) -> tuple[str, str, str]:
+        """Splits all types of assignments
+
+        x = y + 3
+
+        x -= 10
+
+        x++
+
+        Returns: variable, operator, assignment
+
+        """
+        expression_str = str(expression)
+
+        # handle assignments and assignments with operators
         pattern = r"(\w+)\s*([+\-*/]?=)\s*(.+)"
-        if not (match := re.match(pattern, str(expression))):
-            return None
-        return match[1], match[2], match[3]
+        if match := re.match(pattern, expression_str):
+            variable, operator, assignment = match.groups()
+            return variable, operator, assignment
+
+        # handle increment(++) and decrement(--)
+        pattern = r"(\w+)\s*(\+\+|--)"
+        if match := re.match(pattern, expression_str):
+            variable, operator = match.groups()
+            # convert to standard format
+            if operator == "++":
+                return variable, "+=", "1"
+            if operator == "--":
+                return variable, "-=", "1"
+
+        return None

@@ -98,7 +98,6 @@ contract Test2 {
     function func2(uint256 x) public returns (uint256) {
         uint256 result = 5 + x + 12;
         result += 2;
-        uint256 result2 = result;
 
         if ((x > 10 && x < 5) || !(result != 5)) {
             result =  x + 2;
@@ -128,10 +127,11 @@ contract Test2 {
     }   
 
      function func4(uint256 x) public returns (uint256) {
-        for(uint256 j = 0; j < MAX_ITER; j++) {
-            s_result += x * j;
-        }
-        
+        // for(uint256 j = 0; j < MAX_ITER; j++) {
+        //     s_result += x * j;
+        // }
+        x--;
+        x = x + 2;
         return s_result;
 
 
