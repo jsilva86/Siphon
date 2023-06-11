@@ -91,8 +91,19 @@ contract Test2 {
 
     enum myEnum { SMALL, MEDIUM, LARGE }
 
-    function func1() public returns (uint256) {
-        return 1;
+    function func1(uint256 x) public returns (uint256) {
+        uint256 result;
+
+        if (x > 50 && x < 100) {
+            result =  x * 2;
+        } else {
+            result = 200;
+        }
+
+        // This code block is unreachable
+        if (result < 100) {
+            result = 100;
+        }
     }
 
     function func2(uint256 x) public returns (uint256) {
@@ -101,7 +112,6 @@ contract Test2 {
 
         if ((x > 10 && x < 5) || !(result != 5)) {
             result =  x + 2;
-            func1();
         } else {
             result = x * 3;
         }
@@ -129,7 +139,10 @@ contract Test2 {
      function func4(uint256 x) public returns (uint256) {
         for(uint256 j = 0; j < MAX_ITER; j++) {
             s_result += x * j;
+            int test = 123;
         }
+
+        int test = 321;
   
         return s_result;
 

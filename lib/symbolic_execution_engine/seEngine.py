@@ -77,11 +77,11 @@ class SymbolicExecutionEngine:
     def init_symbolic_table(self, symbolic_table: SymbolicTable):
         """Initialise the variables common to all paths"""
         for arg in self.cfg.retrieve_function_args():
-            symbolic_table.update(arg.name)
+            symbolic_table.update_symbol(arg.name)
 
         for variable in self.cfg.retrieve_storage_variables():
             # add the value to the symbolic table
-            symbolic_table.update(variable.name)
+            symbolic_table.update_symbol(variable.name)
 
             # if the variable is initialised store its value
             if variable.expression:
@@ -89,7 +89,7 @@ class SymbolicExecutionEngine:
                     str(variable.expression), symbolic_table
                 )
 
-                symbolic_table.update(variable.name, symbolic_value)
+                symbolic_table.update_symbol(variable.name, symbolic_value)
 
     def execute(self):
         """Entrypoint for the Symbolic execution
@@ -183,6 +183,9 @@ class SymbolicExecutionEngine:
             case NodeType.EXPRESSION:
                 self.evaluate_expression(instruction, symbolic_table, path_contraints)
 
+            case NodeType.STARTLOOP:
+                self.evaluate_begin_loop(instruction, symbolic_table, path_contraints)
+
             case _:
                 self.evaluate_default(instruction, symbolic_table, path_contraints)
 
@@ -191,7 +194,9 @@ class SymbolicExecutionEngine:
     ):
         if_operation = self.build_if_operation(instruction, symbolic_table)
         if_not_operation = Not(if_operation)
-        print("-----Analising-----", if_operation)
+        print("-----Analising-----")
+        print("  Operation -> ", if_operation)
+        print("  Constraints -> ", path_contraints)
 
         # PATTERN 1: Redundant code
         # check if any of the branches are unsatisfiable
@@ -201,8 +206,8 @@ class SymbolicExecutionEngine:
             if_not_operation, path_contraints
         )
 
-        print("Is if sat", is_true_path_sat)
-        print("Is else sat", is_false_path_sat)
+        print("  Is if sat -> ", is_true_path_sat)
+        print("  Is else sat -> ", is_false_path_sat)
 
         # PATTERN 2: Opaque predicates
         # check if any of the branch conditions are tautologies,
@@ -216,8 +221,8 @@ class SymbolicExecutionEngine:
         is_if_opaque = self.solver.check(Not(if_implication)) == unsat
         is_if_not_opaque = self.solver.check(Not(if_not_implication)) == unsat
 
-        print("Is if Opaque", is_if_opaque)
-        print("Is else Opaque", is_if_not_opaque)
+        print("  Is if Opaque -> ", is_if_opaque)
+        print("  Is else Opaque -> ", is_if_not_opaque)
 
         return {
             "should_traverse_true_path": is_true_path_sat,
@@ -234,19 +239,19 @@ class SymbolicExecutionEngine:
             return
         variable, operation, assignment = parts
 
-        current_sym_value = symbolic_table.get(variable)
+        current_sym_value = symbolic_table.get_symbol_value(variable)
 
         new_sym_value = self.update_with_prev_value(
             current_sym_value, operation, assignment, symbolic_table
         )
 
-        symbolic_table.update(variable, new_sym_value)
+        symbolic_table.update_symbol(variable, new_sym_value)
 
     def evaluate_variable_declaration(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
         # add the value to the symbolic table
-        symbolic_table.update(instruction.variable_declaration.name)
+        symbolic_table.update_symbol(instruction.variable_declaration.name)
 
         # if the variable is initialised store its value
         if instruction.variable_declaration.expression:
@@ -254,11 +259,20 @@ class SymbolicExecutionEngine:
                 str(instruction.variable_declaration.expression), symbolic_table
             )
 
-            symbolic_table.update(instruction.variable_declaration.name, symbolic_value)
+            symbolic_table.update_symbol(
+                instruction.variable_declaration.name, symbolic_value
+            )
+
+    def evaluate_begin_loop(
+        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+    ):
+        # print("begin loop", instruction)
+        pass
 
     def evaluate_default(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
+        # print("default inst", instruction)
         pass
 
     def check_path_constraints(
@@ -345,13 +359,13 @@ class SymbolicExecutionEngine:
             first_operand = operations.get(first_operand)
 
         # check if the value is a symbolic_value
-        first_operand = symbolic_table.get(first_operand)
+        first_operand = symbolic_table.get_symbol_value(first_operand)
 
         if self.is_temporary_operand(second_operand):
             second_operand = operations.get(second_operand)
 
         # check if the value is a symbolic_value
-        second_operand = symbolic_table.get(second_operand)
+        second_operand = symbolic_table.get_symbol_value(second_operand)
 
         # return the enhanced operands
         return first_operand, second_operand
@@ -438,7 +452,7 @@ class SymbolicExecutionEngine:
                 result_list.append(RealVal(token))
             else:
                 result_list.append(
-                    symbolic_table.get(token)
+                    symbolic_table.get_symbol_value(token)
                 )  # if the value is symbolic, return its value
 
         result = result_list[0]
