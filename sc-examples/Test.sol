@@ -78,16 +78,19 @@ contract Test {
 }
 
 contract Test2 {
+    struct myStruct2 {
+        uint256 p1;
+        uint256 p2;
+    }
+
     int b = 32;
     int c = 37;
     //myStruct s;
     uint256 s_result;
+    uint256 s_variable;
     uint256 public constant MAX_ITER = 100;
-
-    struct myStruct2 {
-        uint p1;
-        uint p2;
-    }
+    myStruct2 s_struct;
+    uint256[] s_list;
 
     enum myEnum { SMALL, MEDIUM, LARGE }
 
@@ -125,24 +128,30 @@ contract Test2 {
     }
 
     function func3(uint256 x) public pure returns (uint256) {
-        uint256 result;
-
         if (x < 100) {
             if(x < 200) {
-                result = x * 2;
+                uint256 result = 312;
             }
-        } 
+        }
+
+        uint256 result = 123;
 
         return result;
     }   
 
      function func4(uint256 x) public returns (uint256) {
-        for(uint256 j = 0; j < MAX_ITER; j++) {
-            s_result += x * j;
-            int test = 123;
+        for(uint256 i = 0; i < MAX_ITER; i++) {
+            for(uint256 j = 0; j < MAX_ITER; j++) {
+                if (j < i) {
+                    x += s_result * i;
+                    s_variable -= i * j;
+                    // s_struct.p1 = i + x;
+                    // s_list = [123];
+                    // s_list[j] = 123;
+                }
+            }
         }
-
-        int test = 321;
+          
   
         return s_result;
 

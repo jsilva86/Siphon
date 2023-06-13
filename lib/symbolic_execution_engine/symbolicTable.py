@@ -71,7 +71,7 @@ class SymbolicTable:
                    Defaults to 0.
         """
         if symbol := self.get_symbol(symbol_name):
-            symbol.value = value
+            symbol.value = value if value is not None else Int(symbol_name)
         else:
             symbol = Symbol(symbol_name, value)
             self._table.setdefault(scope, []).append(symbol)

@@ -106,30 +106,48 @@ class SymbolicExecutionEngine:
         # Store the path_contraints for each branch
         path_constraints: List = []
 
+        # Store the identifiers of the loops
+        loop_scope: List = []
+
         # start executing from the initial block
-        self.execute_block(self.cfg.head, symbolic_table, path_constraints)
+        self.execute_block(self.cfg.head, symbolic_table, path_constraints, loop_scope)
 
     def execute_block(
-        self, block: Block, symbolic_table: SymbolicTable, path_contraints: list
+        self,
+        block: Block,
+        symbolic_table: SymbolicTable,
+        path_contraints: list,
+        loop_scope: list,
     ):
         for instruction in block.instructions:
             traverse_additional_paths = self.evaluate_instruction(
-                instruction, symbolic_table, path_contraints
+                block, instruction, symbolic_table, path_contraints, loop_scope
             )
 
         # this will only happen, at most, once at the end of each block
         # saveguard against executing unreachable blocks
         if traverse_additional_paths:
             self.unpack_and_execute_next_block(
-                traverse_additional_paths, block, symbolic_table, path_contraints
+                traverse_additional_paths,
+                block,
+                symbolic_table,
+                path_contraints,
+                loop_scope,
             )
         elif block.true_path:
             # reached the end of a block
             # go to the next one
-            self.execute_block(block.true_path, symbolic_table, path_contraints)
+            self.execute_block(
+                block.true_path, symbolic_table, path_contraints, loop_scope
+            )
 
     def unpack_and_execute_next_block(
-        self, traverse_additional_paths, block, symbolic_table, path_contraints
+        self,
+        traverse_additional_paths: dict,
+        block: Block,
+        symbolic_table: SymbolicTable,
+        path_contraints: list,
+        loop_scope: list,
     ):
         """
         Avoid executing unreachable paths
@@ -147,44 +165,62 @@ class SymbolicExecutionEngine:
 
         false_path_constraint = traverse_additional_paths.get("false_path_constraint")
 
+        # fork both paths
+        new_path_constraints = deepcopy(path_contraints)
+        new_symbolic_table = deepcopy(symbolic_table)
+        new_loop_scope = deepcopy(loop_scope)
+
         if should_traverse_true_path:
-            new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(true_path_constraint)
-
-            new_symbolic_table = deepcopy(symbolic_table)
-
             self.execute_block(
-                block.true_path, new_symbolic_table, new_path_constraints
+                block.true_path,
+                new_symbolic_table,
+                new_path_constraints,
+                new_loop_scope,
             )
 
         if should_traverse_false_path and block.false_path:
             # else case is optional
-            new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(false_path_constraint)
-
-            new_symbolic_table = deepcopy(symbolic_table)
-
             self.execute_block(
-                block.false_path, new_symbolic_table, new_path_constraints
+                block.false_path,
+                new_symbolic_table,
+                new_path_constraints,
+                new_loop_scope,
             )
 
     def evaluate_instruction(
-        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+        self,
+        block: Block,
+        instruction: Node,
+        symbolic_table: SymbolicTable,
+        path_contraints: list,
+        loop_scope: list,
     ):
         match instruction.type:
             case NodeType.IF:
                 return self.evaluate_if(instruction, symbolic_table, path_contraints)
 
             case NodeType.VARIABLE:
-                self.evaluate_variable_declaration(
-                    instruction, symbolic_table, path_contraints
-                )
+                self.evaluate_variable_declaration(instruction, symbolic_table)
 
             case NodeType.EXPRESSION:
-                self.evaluate_expression(instruction, symbolic_table, path_contraints)
+                self.evaluate_expression(instruction, symbolic_table, loop_scope)
 
             case NodeType.STARTLOOP:
-                self.evaluate_begin_loop(instruction, symbolic_table, path_contraints)
+                self.evaluate_begin_loop(
+                    block, instruction, symbolic_table, path_contraints, loop_scope
+                )
+
+            case NodeType.IFLOOP:
+                return self.evaluate_if_loop(
+                    block, instruction, symbolic_table, path_contraints
+                )
+
+            case NodeType.ENDLOOP:
+                return self.evaluate_end_loop(
+                    block, instruction, symbolic_table, path_contraints, loop_scope
+                )
 
             case _:
                 self.evaluate_default(instruction, symbolic_table, path_contraints)
@@ -194,7 +230,7 @@ class SymbolicExecutionEngine:
     ):
         if_operation = self.build_if_operation(instruction, symbolic_table)
         if_not_operation = Not(if_operation)
-        print("-----Analising-----")
+        print("-----Analising IF-----")
         print("  Operation -> ", if_operation)
         print("  Constraints -> ", path_contraints)
 
@@ -232,26 +268,55 @@ class SymbolicExecutionEngine:
         }
 
     def evaluate_expression(
-        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+        self, instruction: Node, symbolic_table: SymbolicTable, loop_scope: list
     ):
         if not (parts := self.split_assignment(instruction.expression)):
             # TODO these might be func calls
+            # TODO does not work for structs and list index assignments
+            print("Unable to resolve assignment", instruction)
             return
+
         variable, operation, assignment = parts
+
+        # HACK: avoid changing symbolic value of loop bound variable when stepping
+        if instruction.sons[0].type == NodeType.IFLOOP:
+            return
+
+        # PATTERN 4: Expensive operations in a loop
+        # check if a storage variable is being written to inside a loop
+        if self.is_storage_variable_accessed(instruction, variable) and loop_scope:
+            print("-----STATE VARIABLE WRITTEN IN LOOP-----")
+            print("  Variable -> ", variable)
+            print("  Current Scope -> ", loop_scope[-1])
+            print("  Scope depth -> ", loop_scope)
 
         current_sym_value = symbolic_table.get_symbol_value(variable)
 
         new_sym_value = self.update_with_prev_value(
-            current_sym_value, operation, assignment, symbolic_table
+            current_sym_value,
+            operation,
+            assignment,
+            symbolic_table,
+            instruction,
+            loop_scope,
         )
 
         symbolic_table.update_symbol(variable, new_sym_value)
 
     def evaluate_variable_declaration(
-        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+        self, instruction: Node, symbolic_table: SymbolicTable
     ):
         # add the value to the symbolic table
         symbolic_table.update_symbol(instruction.variable_declaration.name)
+
+        # HACK: avoid giving a value to loop bounded variables
+        if (
+            instruction.sons[0]
+            and instruction.sons[0].type == NodeType.STARTLOOP
+            and instruction.sons[0].sons[0]
+            and instruction.sons[0].sons[0].type == NodeType.IFLOOP
+        ):
+            return
 
         # if the variable is initialised store its value
         if instruction.variable_declaration.expression:
@@ -264,15 +329,59 @@ class SymbolicExecutionEngine:
             )
 
     def evaluate_begin_loop(
-        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+        self,
+        block: Block,
+        instruction: Node,
+        symbolic_table: SymbolicTable,
+        path_contraints: list,
+        loop_scope: list,
     ):
-        # print("begin loop", instruction)
-        pass
+        # psuh current scope
+        loop_scope.append(block.id)
+
+    def evaluate_end_loop(
+        self,
+        block: Block,
+        instruction: Node,
+        symbolic_table: SymbolicTable,
+        path_contraints: list,
+        loop_scope: list,
+    ):
+        # pop the current scope
+        loop_scope.pop()
+
+    def evaluate_if_loop(
+        self,
+        block: Block,
+        instruction: Node,
+        symbolic_table: SymbolicTable,
+        path_contraints: list,
+    ):
+        if_operation = self.build_if_operation(instruction, symbolic_table)
+
+        is_true_path_sat = self.check_path_constraints(if_operation, path_contraints)
+
+        # only traverse loop body once
+        should_traverse_loop = is_true_path_sat and not block.visited
+
+        # FIXME: after executing the loop, the constraint might not need to be propagated
+        if_not_operation = Not(if_operation)
+
+        # to avoid loops
+        is_visited = block.visited
+        block.visited = True
+        # FIXME: since we are only stopping the loop from happening, all instructions prior will still be executed again
+        return {
+            "should_traverse_true_path": should_traverse_loop,
+            "should_traverse_false_path": not is_visited,  # only exit out of loop once
+            "true_path_constraint": if_operation,
+            "false_path_constraint": if_not_operation,
+        }
 
     def evaluate_default(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        # print("default inst", instruction)
+        print("default inst", instruction, path_contraints)
         pass
 
     def check_path_constraints(
@@ -421,8 +530,12 @@ class SymbolicExecutionEngine:
         operation: str,
         assignment: str,
         symbolic_table: SymbolicTable,
+        instruction: Node,
+        loop_scope: list,
     ):
-        assign_symb_value = self.build_symbolic_value(assignment, symbolic_table)
+        assign_symb_value = self.build_symbolic_value(
+            assignment, symbolic_table, instruction, loop_scope
+        )
 
         if operation == "*=":
             return simplify(current_sym_value * assign_symb_value)
@@ -437,7 +550,16 @@ class SymbolicExecutionEngine:
         elif operation == "=":
             return simplify(assign_symb_value)
 
-    def build_symbolic_value(self, expression: str, symbolic_table: SymbolicTable):
+    def build_symbolic_value(
+        self,
+        expression: str,
+        symbolic_table: SymbolicTable,
+        instruction: Node = None,
+        loop_scope: list = None,
+    ):
+        if loop_scope is None:
+            loop_scope = []
+
         result_list = []
 
         # find all the tokens in the expressions
@@ -451,6 +573,18 @@ class SymbolicExecutionEngine:
             elif self.is_numeric(token):
                 result_list.append(RealVal(token))
             else:
+                # PATTERN 4: Expensive operations in a loop
+                # check if a storage variable is being read inside a loop
+                if (
+                    loop_scope
+                    and instruction
+                    and self.is_storage_variable_accessed(instruction, token)
+                ):
+                    print("-----STATE VARIABLE READ IN LOOP-----")
+                    print("  Variable -> ", token)
+                    print("  Current Scope -> ", loop_scope[-1])
+                    print("  Scope depth -> ", loop_scope)
+
                 result_list.append(
                     symbolic_table.get_symbol_value(token)
                 )  # if the value is symbolic, return its value
@@ -514,3 +648,10 @@ class SymbolicExecutionEngine:
                 return variable, "-=", "1"
 
         return None
+
+    def is_storage_variable_accessed(self, instruction: Node, variable_name: str):
+        return any(
+            s_variable.name == variable_name
+            for s_variable in instruction.state_variables_written
+            + instruction.state_variables_read
+        )

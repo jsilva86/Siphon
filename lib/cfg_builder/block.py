@@ -24,6 +24,9 @@ class Block:
         self._false_path: Block = None
         self._prev_block: Block = None
 
+        # to ensure that loops are only traversed once
+        self._visited: bool = False
+
         # TODO is this good enough?
         self._id: int = randint(0, 10000)
 
@@ -94,14 +97,21 @@ class Block:
         """
         dict(StateVariable): State variables written
         """
-        return dict(self._state_variables_written)
+        return self._state_variables_written
 
     @property
     def state_variables_read(self) -> Dict[str, int]:
         """
         dict(StateVariable): State variables read
         """
-        return dict(self._state_variables_read)
+        return self._state_variables_read
+
+    @property
+    def visited(self) -> bool:
+        """
+        Returns: was the block already visited
+        """
+        return self._visited
 
     @true_path.setter
     def true_path(self, value):
@@ -122,6 +132,10 @@ class Block:
     @id.setter
     def id(self, value):
         self._id = value
+
+    @visited.setter
+    def visited(self, value):
+        self._visited = value
 
     def add_instruction(self, instruction: Node):
         self._instructions.append(instruction)
