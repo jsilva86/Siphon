@@ -88,6 +88,7 @@ contract Test2 {
     //myStruct s;
     uint256 s_result;
     uint256 s_variable;
+    uint256 s_condition;
     uint256 public constant MAX_ITER = 100;
     myStruct2 s_struct;
     uint256[] s_list;
@@ -128,23 +129,20 @@ contract Test2 {
     }
 
     function func3(uint256 x) public pure returns (uint256) {
+        uint256 result;
         if (x < 100) {
-            if(x < 200) {
-                uint256 result = 312;
-            }
+           result = 3;
         }
-
-        uint256 result = 123;
 
         return result;
     }   
 
      function func4(uint256 x) public returns (uint256) {
-        for(uint256 i = 0; i < MAX_ITER; i++) {
-            for(uint256 j = 0; j < MAX_ITER; j++) {
-                if (j < i) {
-                    x += s_result * i;
-                    s_variable -= i * j;
+        for(uint256 i = 0; i < 100; i++) {
+            for(uint256 j = 0; j < 100; j++) {
+                if (s_result + 1  + j < s_condition) {
+                    x += s_variable * i;
+                    //s_variable -= i * j;
                     // s_struct.p1 = i + x;
                     // s_list = [123];
                     // s_list[j] = 123;

@@ -199,7 +199,9 @@ class SymbolicExecutionEngine:
     ):
         match instruction.type:
             case NodeType.IF:
-                return self.evaluate_if(instruction, symbolic_table, path_contraints)
+                return self.evaluate_if(
+                    instruction, symbolic_table, path_contraints, loop_scope
+                )
 
             case NodeType.VARIABLE:
                 self.evaluate_variable_declaration(instruction, symbolic_table)
@@ -214,7 +216,7 @@ class SymbolicExecutionEngine:
 
             case NodeType.IFLOOP:
                 return self.evaluate_if_loop(
-                    block, instruction, symbolic_table, path_contraints
+                    block, instruction, symbolic_table, path_contraints, loop_scope
                 )
 
             case NodeType.ENDLOOP:
@@ -226,9 +228,13 @@ class SymbolicExecutionEngine:
                 self.evaluate_default(instruction, symbolic_table, path_contraints)
 
     def evaluate_if(
-        self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
+        self,
+        instruction: Node,
+        symbolic_table: SymbolicTable,
+        path_contraints: list,
+        loop_scope: list,
     ):
-        if_operation = self.build_if_operation(instruction, symbolic_table)
+        if_operation = self.build_if_operation(instruction, symbolic_table, loop_scope)
         if_not_operation = Not(if_operation)
         print("-----Analising IF-----")
         print("  Operation -> ", if_operation)
@@ -284,11 +290,7 @@ class SymbolicExecutionEngine:
 
         # PATTERN 4: Expensive operations in a loop
         # check if a storage variable is being written to inside a loop
-        if self.is_storage_variable_accessed(instruction, variable) and loop_scope:
-            print("-----STATE VARIABLE WRITTEN IN LOOP-----")
-            print("  Variable -> ", variable)
-            print("  Current Scope -> ", loop_scope[-1])
-            print("  Scope depth -> ", loop_scope)
+        self.check_storage_accesses(instruction, variable, loop_scope)
 
         current_sym_value = symbolic_table.get_symbol_value(variable)
 
@@ -356,8 +358,9 @@ class SymbolicExecutionEngine:
         instruction: Node,
         symbolic_table: SymbolicTable,
         path_contraints: list,
+        loop_scope: list,
     ):
-        if_operation = self.build_if_operation(instruction, symbolic_table)
+        if_operation = self.build_if_operation(instruction, symbolic_table, loop_scope)
 
         is_true_path_sat = self.check_path_constraints(if_operation, path_contraints)
 
@@ -398,18 +401,19 @@ class SymbolicExecutionEngine:
 
         return self.solver.check(check_constraint) == sat
 
-    def build_if_operation(self, instruction: Node, symbolic_table: SymbolicTable):
+    def build_if_operation(
+        self, instruction: Node, symbolic_table: SymbolicTable, loop_scope: list
+    ):
         # store all operations being made
         operations = {}
 
         # TMP_XX = <some_operation>
-        pattern = r"^([^=\s]+)\s*=\s*(.*)$"
+        pattern = r"^(.*?)\s*=\s*(.*?)$"
 
         for ir in instruction.irs:
-            # Match the pattern against the string
-            match = re.match(pattern, str(ir))
+            split = str(ir).split("=", 1)
 
-            if not match:
+            if len(split) < 2:
                 # When we reach this, the operation as been completed and the value is stored in TMP_XX
                 match = re.match(r"CONDITION\s+(.+)", str(ir))
 
@@ -419,18 +423,29 @@ class SymbolicExecutionEngine:
                 return operations[key_to_final_value]
 
             # Extract the temporary variable being used to store and its value
-            tmp_var = re.sub(r"\([^()]*\)", "", match[1])  # ignore the type of the TMP
-            operation = match[2]
+            var = split[0].strip()
+            operation = split[1].strip()
+
+            tmp_var = re.sub(r"\([^()]*\)", "", var)  # ignore the type of the TMP
+            operation = re.sub(r"\([^()]*\)", "", operation)  # ignore all var types
 
             # complex operands use TMPs to store their values before comparison
-            # TMP_14(uint256) = result (c)+ x
+            # TMP_14(uint256) = result (c)+ x + TMP_13(uint256)
             if any(operator in operation for operator in ["+", "-", "*", "/", "%"]):
                 # ignore if a variable is constant
                 # TODO check if there are more variations
                 assignment = operation.replace("(c)", "")
 
-                tmp_assignment = self.build_symbolic_value(assignment, symbolic_table)
-                operations[tmp_var] = tmp_assignment
+                pattern = r"TMP_\w+"
+                matches = re.findall(pattern, assignment)
+
+                for match in matches:
+                    if match in operations:
+                        assignment = assignment.replace(match, str(operations[match]))
+
+                # tmp_assignment = self.build_symbolic_value(assignment, symbolic_table)
+
+                operations[tmp_var] = assignment
                 continue
 
             # all the other cases are operations
@@ -438,7 +453,7 @@ class SymbolicExecutionEngine:
 
             # the operands can also be TMPs and symbolic values
             first_operand, second_operand = self.resolve_operands(
-                operations, operation, operator, symbolic_table
+                operations, operation, operator, symbolic_table, instruction, loop_scope
             )
 
             # apply the operation to the operands
@@ -456,8 +471,14 @@ class SymbolicExecutionEngine:
                 )
 
     def resolve_operands(
-        self, operations, operation, operator, symbolic_table: SymbolicTable
-    ):
+        self,
+        operations,
+        operation,
+        operator,
+        symbolic_table: SymbolicTable,
+        instruction: Node,
+        loop_scope: list,
+    ):  # sourcery skip: extract-duplicate-method
         # Split the expression based on the operator
         parts = operation.split(operator)
         first_operand = parts[0].strip()
@@ -467,14 +488,48 @@ class SymbolicExecutionEngine:
         if self.is_temporary_operand(first_operand):
             first_operand = operations.get(first_operand)
 
+        # PATTERN 4: Expensive operations in a loop
+        # check if first_operand is a storage variable
+
+        # FIXME NOT WORKING
+        self.check_storage_accesses(instruction, first_operand, loop_scope)
+
         # check if the value is a symbolic_value
-        first_operand = symbolic_table.get_symbol_value(first_operand)
+        if any(
+            operator in str(first_operand) for operator in ["+", "-", "*", "/", "%"]
+        ) and all(
+            operator not in str(first_operand)
+            for operator in ["<", "<=", ">=", "==", "!=", "&&", "||", "!"]
+        ):
+            # result (c)+ x + TMP_13(uint256), but not normal comparisons (those are handled outside)
+            first_operand = self.build_symbolic_value(
+                first_operand, symbolic_table, instruction, loop_scope
+            )
+        else:
+            # standalone value
+            first_operand = symbolic_table.get_symbol_value(first_operand)
 
         if self.is_temporary_operand(second_operand):
             second_operand = operations.get(second_operand)
 
+        # PATTERN 4: Expensive operations in a loop
+        # check if second_operand is a storage variable
+        self.check_storage_accesses(instruction, second_operand, loop_scope)
+
         # check if the value is a symbolic_value
-        second_operand = symbolic_table.get_symbol_value(second_operand)
+        if any(
+            operator in str(second_operand) for operator in ["+", "-", "*", "/", "%"]
+        ) and all(
+            operator not in str(second_operand)
+            for operator in ["<", "<=", ">=", "==", "!=", "&&", "||", "!"]
+        ):
+            # result (c)+ x + TMP_13(uint256), but not normal comparisons (those are handled outside)
+            second_operand = self.build_symbolic_value(
+                second_operand, symbolic_table, instruction, loop_scope
+            )
+        else:
+            # standalone value
+            second_operand = symbolic_table.get_symbol_value(second_operand)
 
         # return the enhanced operands
         return first_operand, second_operand
@@ -574,16 +629,9 @@ class SymbolicExecutionEngine:
                 result_list.append(RealVal(token))
             else:
                 # PATTERN 4: Expensive operations in a loop
-                # check if a storage variable is being read inside a loop
-                if (
-                    loop_scope
-                    and instruction
-                    and self.is_storage_variable_accessed(instruction, token)
-                ):
-                    print("-----STATE VARIABLE READ IN LOOP-----")
-                    print("  Variable -> ", token)
-                    print("  Current Scope -> ", loop_scope[-1])
-                    print("  Scope depth -> ", loop_scope)
+                # check if a storage variable is being read in assignment
+                if instruction:
+                    self.check_storage_accesses(instruction, token, loop_scope)
 
                 result_list.append(
                     symbolic_table.get_symbol_value(token)
@@ -649,9 +697,23 @@ class SymbolicExecutionEngine:
 
         return None
 
+    def check_storage_accesses(
+        self, instruction: Node, variable_name: str, loop_scope: list
+    ):
+        if self.is_storage_variable_accessed(instruction, variable_name) and loop_scope:
+            print("-----STATE VARIABLE ACCESSED IN LOOP-----")
+            print("  Variable -> ", variable_name)
+            print("  Instruction -> ", instruction)
+            print("  Current Scope -> ", loop_scope[-1])
+            print("  Scope depth -> ", loop_scope)
+            # TODO: create report here
+            return True
+        return False
+
     def is_storage_variable_accessed(self, instruction: Node, variable_name: str):
+        # sourcery skip: remove-unnecessary-cast
         return any(
-            s_variable.name == variable_name
+            s_variable.name == str(variable_name)
             for s_variable in instruction.state_variables_written
             + instruction.state_variables_read
         )
