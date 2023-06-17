@@ -78,22 +78,12 @@ contract Test {
 }
 
 contract Test2 {
-    struct myStruct2 {
-        uint256 p1;
-        uint256 p2;
-    }
-
-    int b = 32;
-    int c = 37;
-    //myStruct s;
     uint256 s_result;
     uint256 s_variable;
     uint256 s_condition;
     uint256 public constant MAX_ITER = 100;
-    myStruct2 s_struct;
+    mapping(address => uint) public s_mapping;
     uint256[] s_list;
-
-    enum myEnum { SMALL, MEDIUM, LARGE }
 
     function func1(uint256 x) public returns (uint256) {
         uint256 result;
@@ -128,31 +118,32 @@ contract Test2 {
         return result;  
     }
 
-    function func3(uint256 x) public pure returns (uint256) {
+    function func3(uint256 x) public returns (uint256) {
         uint256 result;
-        if (x < 100) {
+        if (s_result < 100) {
            result = 3;
         }
 
         return result;
     }   
 
-     function func4(uint256 x) public returns (uint256) {
+    function func4(uint256 x) public returns (uint256) {
         for(uint256 i = 0; i < 100; i++) {
             for(uint256 j = 0; j < 100; j++) {
                 if (s_result + 1  + j < s_condition) {
                     x += s_variable * i;
-                    //s_variable -= i * j;
-                    // s_struct.p1 = i + x;
-                    // s_list = [123];
-                    // s_list[j] = 123;
                 }
             }
         }
-          
-  
+    
         return s_result;
-
-
     }  
+
+    function func5(address key) public returns (uint256) {
+        for(uint256 i = 0; i < 100; i++) {
+            s_mapping[key] += i;
+        }
+    
+        return s_result;
+    } 
 }

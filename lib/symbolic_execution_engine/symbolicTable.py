@@ -1,5 +1,13 @@
 from typing import Dict
+from enum import Enum
+
 from z3 import *
+
+
+class SymbolType(Enum):
+    PRIMITIVE = 1
+    MAPPING = 2
+    ARRAY = 3
 
 
 class SymbolicTable:
@@ -20,10 +28,37 @@ class SymbolicTable:
         for scope in sorted_scopes:
             symbol_list = self._table[scope]
             symbols.extend(
-                f"Scope: {scope}, Symbol: {symbol.name}, Value: {symbol.value}"
+                f"Scope: {scope}, Symbol: {symbol.name}, Value: {symbol.value}, Type: {symbol.type}"
                 for symbol in symbol_list
             )
         return "\n".join(symbols)
+
+    def push_symbol(self, symbol_name: str, type: SymbolType = None, scope: int = 0):
+        """
+        Initialize a symbol in the dictionary with the given symbol name, type, and scope.
+
+        Args:
+            symbol_name: The name of the symbol to initialize.
+            type: The type of the symbol. Defaults to None.
+            scope: The key to identify the list in the dictionary where the symbol should be inserted.
+                Defaults to 0.
+        """
+        symbol = Symbol(symbol_name, type)
+        self._table.setdefault(scope, []).append(symbol)
+
+    def update_symbol(self, symbol_name: str, value=None):
+        """
+        Update the value of a symbol in the dictionary with the given symbol name and scope.
+
+        Args:
+            symbol_name: The name of the symbol to update.
+            value: The new value to assign to the symbol. Defaults to None.
+            scope: The key to identify the list in the dictionary where the symbol is located.
+                   Defaults to 0.
+        """
+
+        if symbol := self.get_symbol(symbol_name):
+            symbol.value = value if value is not None else Int(symbol_name)
 
     def get_symbol(self, symbol_name: str) -> Symbol:
         # sourcery skip: remove-unnecessary-cast
@@ -37,7 +72,7 @@ class SymbolicTable:
             The Symbol object corresponding to the given symbol name, or None if not found.
         """
 
-        # Iterate from highest scope to lowest, since it's more likely that the symbol is in an higher scope
+        # Iterate from highest to lowest scope, since it's more likely that the symbol is in an higher scope
         scopes = range(max(self._table.keys(), default=0), -1, -1)
 
         for scope in scopes:
@@ -60,22 +95,6 @@ class SymbolicTable:
         """
         return symbol.value if (symbol := self.get_symbol(symbol_name)) else symbol_name
 
-    def update_symbol(self, symbol_name: str, value=None, scope: int = 0):
-        """
-        Create or update a symbol in the dictionary with the given symbol name, value, and scope.
-
-        Args:
-            symbol_name: The name of the symbol to create or update.
-            value: The value to assign to the symbol. Defaults to None.
-            scope: The key to identify the list in the dictionary where the symbol should be inserted or updated.
-                   Defaults to 0.
-        """
-        if symbol := self.get_symbol(symbol_name):
-            symbol.value = value if value is not None else Int(symbol_name)
-        else:
-            symbol = Symbol(symbol_name, value)
-            self._table.setdefault(scope, []).append(symbol)
-
     @property
     def table(self) -> Dict:
         """Returns the Symbolic Table
@@ -87,12 +106,15 @@ class SymbolicTable:
 
 
 class Symbol:
-    def __init__(self, name: str, value=None):
+    def __init__(self, name: str, type: SymbolType, value=None):
         # the name of the symbol
         self._name: str = name
 
         # the current value of the symbol
         self._value = value if value is not None else Int(name)
+
+        # symbol type
+        self._type: SymbolType = type
 
     @property
     def name(self):
@@ -110,6 +132,14 @@ class Symbol:
         """
         return self._value
 
+    @property
+    def type(self):
+        """
+        Returns:
+            Symbol's type
+        """
+        return self._type
+
     @value.setter
     def value(self, new_value):
         """
@@ -119,3 +149,12 @@ class Symbol:
             new_value: The new value to assign to the symbol.
         """
         self._value = new_value
+
+    def is_primitive(self):
+        return self.type is SymbolType.PRIMITIVE
+
+    def is_mapping(self):
+        return self.type is SymbolType.MAPPING
+
+    def is_array(self):
+        return self.type is SymbolType.ARRAY

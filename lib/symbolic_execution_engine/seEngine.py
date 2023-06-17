@@ -5,11 +5,13 @@ from copy import deepcopy
 
 from slither.core.cfg.node import NodeType, Node
 from slither.core.expressions.expression import Expression
+from slither.core.solidity_types.type import Type
+from slither.core.solidity_types.array_type import ArrayType
+from slither.core.solidity_types.mapping_type import MappingType
 
-from lib.symbolic_execution_engine.symbolicTable import SymbolicTable
+from lib.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
 from lib.cfg_builder.cfg import CFG
 from lib.cfg_builder.block import Block
-from slither.slithir.operations import Operation
 
 
 class SymbolicExecutionEngine:
@@ -77,11 +79,13 @@ class SymbolicExecutionEngine:
     def init_symbolic_table(self, symbolic_table: SymbolicTable):
         """Initialise the variables common to all paths"""
         for arg in self.cfg.retrieve_function_args():
-            symbolic_table.update_symbol(arg.name)
+            symbol_type = self.get_symbol_type(arg.type)
+            symbolic_table.push_symbol(arg.name, symbol_type)
 
         for variable in self.cfg.retrieve_storage_variables():
+            symbol_type = self.get_symbol_type(variable.type)
             # add the value to the symbolic table
-            symbolic_table.update_symbol(variable.name)
+            symbolic_table.push_symbol(variable.name, symbol_type)
 
             # if the variable is initialised store its value
             if variable.expression:
@@ -309,7 +313,8 @@ class SymbolicExecutionEngine:
         self, instruction: Node, symbolic_table: SymbolicTable
     ):
         # add the value to the symbolic table
-        symbolic_table.update_symbol(instruction.variable_declaration.name)
+        symbol_Type = self.get_symbol_type(instruction.variable_declaration.type)
+        symbolic_table.push_symbol(instruction.variable_declaration.name, symbol_Type)
 
         # HACK: avoid giving a value to loop bounded variables
         if (
@@ -710,10 +715,20 @@ class SymbolicExecutionEngine:
             return True
         return False
 
-    def is_storage_variable_accessed(self, instruction: Node, variable_name: str):
+    def is_storage_variable_accessed(
+        self, instruction: Node, variable_name: str
+    ) -> bool:
         # sourcery skip: remove-unnecessary-cast
         return any(
             s_variable.name == str(variable_name)
             for s_variable in instruction.state_variables_written
             + instruction.state_variables_read
         )
+
+    def get_symbol_type(self, slither_type: Type):
+        if isinstance(slither_type, MappingType):
+            return SymbolType.MAPPING
+        elif isinstance(slither_type, ArrayType):
+            return SymbolType.ARRAY
+
+        return SymbolType.PRIMITIVE
