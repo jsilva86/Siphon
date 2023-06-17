@@ -83,6 +83,7 @@ contract Test2 {
     uint256 s_condition;
     uint256 public constant MAX_ITER = 100;
     mapping(address => uint) public s_mapping;
+    mapping(uint256 => uint) public s_mapping_bad;
     uint256[] s_list;
 
     function func1(uint256 x) public returns (uint256) {
@@ -139,11 +140,12 @@ contract Test2 {
         return s_result;
     }  
 
-    function func5(address key) public returns (uint256) {
+    function func5(address key, uint x) public returns (uint256) {
         for(uint256 i = 0; i < 100; i++) {
             s_mapping[key] += i;
+            s_mapping_bad[i] += i;
         }
-    
+
         return s_result;
     } 
 }

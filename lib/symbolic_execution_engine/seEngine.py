@@ -289,7 +289,7 @@ class SymbolicExecutionEngine:
         variable, operation, assignment = parts
 
         # HACK: avoid changing symbolic value of loop bound variable when stepping
-        if instruction.sons[0].type == NodeType.IFLOOP:
+        if instruction.sons and instruction.sons[0].type == NodeType.IFLOOP:
             return
 
         # PATTERN 4: Expensive operations in a loop
@@ -685,7 +685,7 @@ class SymbolicExecutionEngine:
         expression_str = str(expression)
 
         # handle assignments and assignments with operators
-        pattern = r"(\w+)\s*([+\-*/]?=)\s*(.+)"
+        pattern = r"(\w+(?:\[\w+\])?)\s*([+\-*/]?=)\s*(.+)"
         if match := re.match(pattern, expression_str):
             variable, operator, assignment = match.groups()
             return variable, operator, assignment
@@ -720,10 +720,19 @@ class SymbolicExecutionEngine:
     ) -> bool:
         # sourcery skip: remove-unnecessary-cast
         return any(
-            s_variable.name == str(variable_name)
+            s_variable.name == self.sanitize_variable_name(str(variable_name))
             for s_variable in instruction.state_variables_written
             + instruction.state_variables_read
         )
+
+    def sanitize_variable_name(self, name: str) -> str:
+        """Sanitize indexable part of variable
+
+        Returns: sanitized variable name
+        """
+
+        # TODO extend this to structs, for now only works for mappings and arrays. Both use "[]"".
+        return re.sub(r"\[[^)]*\]", "", name)
 
     def get_symbol_type(self, slither_type: Type):
         if isinstance(slither_type, MappingType):
