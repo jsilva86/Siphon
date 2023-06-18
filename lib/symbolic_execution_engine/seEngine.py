@@ -389,7 +389,7 @@ class SymbolicExecutionEngine:
     def evaluate_default(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        print("default inst", instruction, path_contraints)
+        # print("default inst", instruction, path_contraints)
         pass
 
     def check_path_constraints(
@@ -412,12 +412,35 @@ class SymbolicExecutionEngine:
         # store all operations being made
         operations = {}
 
-        # TMP_XX = <some_operation>
-        pattern = r"^(.*?)\s*=\s*(.*?)$"
-
         for ir in instruction.irs:
-            split = str(ir).split("=", 1)
+            # to ensure that all operations are use TMP_XX notation
+            str_ir = re.sub(r"REF_([\d]+)", r"TMP_\1", str(ir))
 
+            # REF_XX -> LENGTH list, represents "list.length"
+            # convert it to TMP_XX = list.length
+            if "->" in str_ir:
+                # Replace -> with =
+                str_ir = str_ir.replace("->", "=")
+
+                # Convert LENGTH to lowercase and join with list using a dot
+                str_ir = re.sub(
+                    r"(\b\w+)\s+(\w+)",
+                    lambda match: f"{match.group(2).lower()}.{match.group(1).lower()}",
+                    str_ir,
+                )
+
+                split = str_ir.split("=", 1)
+
+                # Extract the temporary variable being used to store and its value
+                var = split[0].strip()
+                operation = split[1].strip()
+
+                operations[var] = operation
+                continue
+
+            split = str_ir.split("=", 1)
+
+            # CONDITION TMP_XX, represents return value of operation
             if len(split) < 2:
                 # When we reach this, the operation as been completed and the value is stored in TMP_XX
                 match = re.match(r"CONDITION\s+(.+)", str(ir))
@@ -431,6 +454,7 @@ class SymbolicExecutionEngine:
             var = split[0].strip()
             operation = split[1].strip()
 
+            # FIXME this might break if we try using func_calls in ifs
             tmp_var = re.sub(r"\([^()]*\)", "", var)  # ignore the type of the TMP
             operation = re.sub(r"\([^()]*\)", "", operation)  # ignore all var types
 
@@ -448,8 +472,6 @@ class SymbolicExecutionEngine:
                     if match in operations:
                         assignment = assignment.replace(match, str(operations[match]))
 
-                # tmp_assignment = self.build_symbolic_value(assignment, symbolic_table)
-
                 operations[tmp_var] = assignment
                 continue
 
@@ -464,7 +486,7 @@ class SymbolicExecutionEngine:
             # apply the operation to the operands
             if operator in ["&&", "||", "!"]:
                 # boolean operation
-                if not str(first_operand):
+                if operator == "!":
                     # Not case only has one operand, the second one
                     operations[tmp_var] = fn(second_operand)
                 else:
@@ -495,24 +517,12 @@ class SymbolicExecutionEngine:
 
         # PATTERN 4: Expensive operations in a loop
         # check if first_operand is a storage variable
-
-        # FIXME NOT WORKING
         self.check_storage_accesses(instruction, first_operand, loop_scope)
 
-        # check if the value is a symbolic_value
-        if any(
-            operator in str(first_operand) for operator in ["+", "-", "*", "/", "%"]
-        ) and all(
-            operator not in str(first_operand)
-            for operator in ["<", "<=", ">=", "==", "!=", "&&", "||", "!"]
-        ):
-            # result (c)+ x + TMP_13(uint256), but not normal comparisons (those are handled outside)
-            first_operand = self.build_symbolic_value(
-                first_operand, symbolic_table, instruction, loop_scope
-            )
-        else:
-            # standalone value
-            first_operand = symbolic_table.get_symbol_value(first_operand)
+        # convert operand to correct format to perform operation
+        first_operand = self.build_operand_from_tmp(
+            first_operand, symbolic_table, instruction, loop_scope
+        )
 
         if self.is_temporary_operand(second_operand):
             second_operand = operations.get(second_operand)
@@ -521,23 +531,40 @@ class SymbolicExecutionEngine:
         # check if second_operand is a storage variable
         self.check_storage_accesses(instruction, second_operand, loop_scope)
 
-        # check if the value is a symbolic_value
-        if any(
-            operator in str(second_operand) for operator in ["+", "-", "*", "/", "%"]
-        ) and all(
-            operator not in str(second_operand)
-            for operator in ["<", "<=", ">=", "==", "!=", "&&", "||", "!"]
-        ):
-            # result (c)+ x + TMP_13(uint256), but not normal comparisons (those are handled outside)
-            second_operand = self.build_symbolic_value(
-                second_operand, symbolic_table, instruction, loop_scope
-            )
-        else:
-            # standalone value
-            second_operand = symbolic_table.get_symbol_value(second_operand)
+        # convert operand to correct format to perform operation
+        second_operand = self.build_operand_from_tmp(
+            second_operand, symbolic_table, instruction, loop_scope
+        )
 
         # return the enhanced operands
         return first_operand, second_operand
+
+    def build_operand_from_tmp(
+        self,
+        operand,
+        symbolic_table: SymbolicTable,
+        instruction: Node,
+        loop_scope: list,
+    ):
+        arithmetic_operators = ["+", "-", "*", "/", "%"]
+        boolean_operators = ["<", "<=", ">", ">=", "==", "!=", "&&", "||", "!"]
+
+        # ignore comparisons, since this case is handled elsewhere
+        # ex: x < 10
+        if any(operator in str(operand) for operator in boolean_operators):
+            return operand
+
+        # convert expression to symbolic equivalent
+        # ex: result (c)+ x + TMP_13(uint256)
+        elif any(operator in str(operand) for operator in arithmetic_operators):
+            # result (c)+ x + TMP_13(uint256)
+            return self.build_symbolic_value(
+                operand, symbolic_table, instruction, loop_scope
+            )
+
+        # standalone values
+        # ex: "x"
+        return symbolic_table.get_symbol_value(operand)
 
     def get_operator(self, operation):
         # Handle comparison operators
@@ -623,11 +650,14 @@ class SymbolicExecutionEngine:
         result_list = []
 
         # find all the tokens in the expressions
-        # operations, constants, variables and function calls
-        tokens = re.findall(r"\d+|\w+\(?\)?|[+\-*/%]", expression)
+        # operations, constants, variables, function calls and methods "." (dot)
+        tokens = re.findall(
+            r"\d+|\w+\[[^\]]*\].?\w*|\w+\([^\]]*\)|\w+.?\w*|[+\-*/%]", expression
+        )
 
         # convert all tokens to their correct format
         for token in tokens:
+            token = token.strip()
             if token in ["+", "-", "*", "/", "%"]:
                 result_list.append(token)
             elif self.is_numeric(token):

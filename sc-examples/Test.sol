@@ -148,4 +148,15 @@ contract Test2 {
 
         return s_result;
     } 
+
+    function func6(uint256[] memory list, address key) public {
+        uint256 min_length = 10;
+        uint256 sum;
+        uint256 list_len = s_mapping[key] + func3(3) + list.length;
+        for(uint256 i = 0; i < list.length; i++) {
+            if (list.length > min_length) {
+                sum += i;
+            } 
+        }
+    } 
 }
