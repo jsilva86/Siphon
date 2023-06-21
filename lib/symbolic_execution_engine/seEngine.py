@@ -170,11 +170,11 @@ class SymbolicExecutionEngine:
         false_path_constraint = traverse_additional_paths.get("false_path_constraint")
 
         # fork both paths
-        new_path_constraints = deepcopy(path_contraints)
         new_symbolic_table = deepcopy(symbolic_table)
         new_loop_scope = deepcopy(loop_scope)
 
         if should_traverse_true_path:
+            new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(true_path_constraint)
             self.execute_block(
                 block.true_path,
@@ -185,6 +185,7 @@ class SymbolicExecutionEngine:
 
         if should_traverse_false_path and block.false_path:
             # else case is optional
+            new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(false_path_constraint)
             self.execute_block(
                 block.false_path,
@@ -198,38 +199,42 @@ class SymbolicExecutionEngine:
         block: Block,
         instruction: Node,
         symbolic_table: SymbolicTable,
-        path_contraints: list,
+        path_constraints: list,
         loop_scope: list,
     ):
         match instruction.type:
             case NodeType.IF:
                 return self.evaluate_if(
-                    instruction, symbolic_table, path_contraints, loop_scope
+                    instruction, symbolic_table, path_constraints, loop_scope
                 )
 
             case NodeType.VARIABLE:
-                self.evaluate_variable_declaration(instruction, symbolic_table)
+                self.evaluate_variable_declaration(
+                    instruction, symbolic_table, loop_scope
+                )
 
             case NodeType.EXPRESSION:
-                self.evaluate_expression(instruction, symbolic_table, loop_scope)
+                self.evaluate_expression(
+                    instruction, symbolic_table, loop_scope, path_constraints
+                )
 
             case NodeType.STARTLOOP:
                 self.evaluate_begin_loop(
-                    block, instruction, symbolic_table, path_contraints, loop_scope
+                    block, instruction, symbolic_table, path_constraints, loop_scope
                 )
 
             case NodeType.IFLOOP:
                 return self.evaluate_if_loop(
-                    block, instruction, symbolic_table, path_contraints, loop_scope
+                    block, instruction, symbolic_table, path_constraints, loop_scope
                 )
 
             case NodeType.ENDLOOP:
                 return self.evaluate_end_loop(
-                    block, instruction, symbolic_table, path_contraints, loop_scope
+                    block, instruction, symbolic_table, path_constraints, loop_scope
                 )
 
             case _:
-                self.evaluate_default(instruction, symbolic_table, path_contraints)
+                self.evaluate_default(instruction, symbolic_table, path_constraints)
 
     def evaluate_if(
         self,
@@ -278,7 +283,11 @@ class SymbolicExecutionEngine:
         }
 
     def evaluate_expression(
-        self, instruction: Node, symbolic_table: SymbolicTable, loop_scope: list
+        self,
+        instruction: Node,
+        symbolic_table: SymbolicTable,
+        loop_scope: list,
+        path_constraints: list,
     ):
         if not (parts := self.split_assignment(instruction.expression)):
             # TODO these might be func calls
@@ -310,11 +319,19 @@ class SymbolicExecutionEngine:
         symbolic_table.update_symbol(variable, new_sym_value)
 
     def evaluate_variable_declaration(
-        self, instruction: Node, symbolic_table: SymbolicTable
+        self, instruction: Node, symbolic_table: SymbolicTable, loop_scope: list
     ):
         # add the value to the symbolic table
-        symbol_Type = self.get_symbol_type(instruction.variable_declaration.type)
-        symbolic_table.push_symbol(instruction.variable_declaration.name, symbol_Type)
+        symbol_type = self.get_symbol_type(instruction.variable_declaration.type)
+
+        # if there is no loop add the symbol to the global scope
+        loop_scope = loop_scope[-1] if loop_scope else 0
+
+        symbolic_table.push_symbol(
+            instruction.variable_declaration.name, symbol_type, loop_scope
+        )
+
+        s = symbolic_table.get_symbol(instruction.variable_declaration.name)
 
         # HACK: avoid giving a value to loop bounded variables
         if (
@@ -389,7 +406,7 @@ class SymbolicExecutionEngine:
     def evaluate_default(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        # print("default inst", instruction, path_contraints)
+        # print("default inst", symbolic_table)
         pass
 
     def check_path_constraints(

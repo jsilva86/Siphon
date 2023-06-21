@@ -26,6 +26,7 @@ class SymbolicTable:
         sorted_scopes = sorted(self._table.keys())  # Sort scopes in ascending order
 
         for scope in sorted_scopes:
+            print(scope)
             symbol_list = self._table[scope]
             symbols.extend(
                 f"Scope: {scope}, Symbol: {symbol.name}, Value: {symbol.value}, Type: {symbol.type}"
@@ -33,7 +34,7 @@ class SymbolicTable:
             )
         return "\n".join(symbols)
 
-    def push_symbol(self, symbol_name: str, type: SymbolType = None, scope: int = 0):
+    def push_symbol(self, symbol_name: str, type: SymbolType, loop_scope: int = 0):
         """
         Initialize a symbol in the dictionary with the given symbol name, type, and scope.
 
@@ -43,8 +44,17 @@ class SymbolicTable:
             scope: The key to identify the list in the dictionary where the symbol should be inserted.
                 Defaults to 0.
         """
-        symbol = Symbol(symbol_name, type)
-        self._table.setdefault(scope, []).append(symbol)
+        if existing_symbol := self.get_symbol(symbol_name):
+            # Symbol already exists, move it to the correct key in the table
+            old_scope = existing_symbol.loop_scope
+            if old_scope != loop_scope:
+                self._table[old_scope].remove(existing_symbol)
+                self._table.setdefault(loop_scope, []).append(existing_symbol)
+                existing_symbol.loop_scope = loop_scope
+                existing_symbol.is_loop_bounded = bool(loop_scope)
+        else:
+            symbol = Symbol(symbol_name, type, loop_scope)
+            self._table.setdefault(loop_scope, []).append(symbol)
 
     def update_symbol(self, symbol_name: str, value=None):
         """
@@ -110,15 +120,21 @@ class SymbolicTable:
 
 
 class Symbol:
-    def __init__(self, name: str, type: SymbolType, value=None):
+    def __init__(self, name: str, type: SymbolType, loop_scope: int = 0):
         # the name of the symbol
         self._name: str = name
 
         # the current value of the symbol
-        self._value = value if value is not None else Int(name)
+        self._value = Int(name)
 
         # symbol type
         self._type: SymbolType = type
+
+        # Symbol was declared in the scope of a loop
+        self._is_loop_bounded: bool = bool(loop_scope)
+
+        # Scope where Symbol was declared
+        self._loop_scope: int = loop_scope
 
     @property
     def name(self):
@@ -144,6 +160,22 @@ class Symbol:
         """
         return self._type
 
+    @property
+    def loop_scope(self):
+        """
+        Returns:
+            Returns the scope where the Symbol was declared
+        """
+        return self._loop_scope
+
+    @property
+    def is_loop_bounded(self):
+        """
+        Returns:
+            True if the Symbol is declared within a loop
+        """
+        return self._is_loop_bounded
+
     @value.setter
     def value(self, new_value):
         """
@@ -153,6 +185,36 @@ class Symbol:
             new_value: The new value to assign to the symbol.
         """
         self._value = new_value
+
+    @type.setter
+    def type(self, new_type):
+        """
+        Setter for the type of the symbol.
+
+        Args:
+            new_type: The new type of the symbol.
+        """
+        self._type = new_type
+
+    @loop_scope.setter
+    def loop_scope(self, new_scope):
+        """
+        Setter for the scope of the symbol.
+
+        Args:
+            new_scope: The new scope of the symbol.
+        """
+        self._loop_scope = new_scope
+
+    @is_loop_bounded.setter
+    def is_loop_bounded(self, is_loop_bounded):
+        """
+        Setter for the scope of the symbol.
+
+        Args:
+            new_scope: The new scope of the symbol.
+        """
+        self._is_loop_bounded = is_loop_bounded
 
     def is_primitive(self):
         return self.type is SymbolType.PRIMITIVE
