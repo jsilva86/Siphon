@@ -145,13 +145,13 @@ contract Test2 {
     function func5(address key, uint x) public returns (uint256) {
         uint256 sum;
         uint256 sum_bad;
-        for(uint256 i = 0; i < 100; i++) {
-            uint256 loop_key = i;
+        for(uint256 i = 0; i < s_list.length; i++) {
             s_mapping[key] += i;
+            sum += s_mapping[key];
+
+            uint256 loop_key = i;
             s_mapping_bad[i] += i;
             s_mapping_bad[loop_key] += i;
-            
-            sum += s_mapping[key];
             sum_bad += s_mapping_bad[loop_key];
         }
 
@@ -161,9 +161,8 @@ contract Test2 {
     function func6(uint256[] memory list, address key) public returns (uint256) {
         uint256 min_length = 10;
         uint256 sum = 0;
-        uint256 list_len = s_mapping[key] + func3(3) + list.length;
         uint256 i = 0;
-        for(i = 0; i < list.length; i++) {
+        for(i = 0; i < s_list.length; i++) {
             if (list.length > min_length) {
                 sum += i;
             } 

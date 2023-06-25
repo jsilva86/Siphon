@@ -245,6 +245,7 @@ class SymbolicExecutionEngine:
     ):
         if_operation = self.build_if_operation(instruction, symbolic_table, loop_scope)
         if_not_operation = Not(if_operation)
+
         print("-----Analising IF-----")
         print("  Operation -> ", if_operation)
         print("  Constraints -> ", path_contraints)
@@ -767,7 +768,7 @@ class SymbolicExecutionEngine:
             )
             and loop_scope
         ):
-            print("-----STATE VARIABLE ACCESSED IN LOOP-----")
+            print("-----STORAGE VARIABLE ACCESSED IN LOOP-----")
             print("  Variable -> ", variable_name)
             print("  Instruction -> ", instruction)
             print("  Current Scope -> ", loop_scope[-1])
@@ -801,6 +802,10 @@ class SymbolicExecutionEngine:
             if symbolic_variable.is_primitive():
                 return True
 
+            # calling method over list (list.length)
+            if symbolic_variable.is_array() and not indexable_part:
+                return True
+
             if symbolic_indexable_part := symbolic_table.get_symbol(indexable_part):
                 # if the key was declared in the current scope, then it's a false positive
                 return symbolic_indexable_part.loop_scope != loop_scope[-1]
@@ -821,8 +826,11 @@ class SymbolicExecutionEngine:
         # TODO handle structs
         if result := re.search(r"(\w+)\[(.*?)\]", name):
             return result[1], result[2]
-        else:
-            return name, None
+
+        # ignore everything after "."
+        # FIXME probably won't work for structs
+        parts = name.split(".")
+        return parts[0], None
 
     def get_symbol_type(self, slither_type: Type):
         if isinstance(slither_type, MappingType):
