@@ -143,9 +143,16 @@ contract Test2 {
     }  
 
     function func5(address key, uint x) public returns (uint256) {
+        uint256 sum;
+        uint256 sum_bad;
         for(uint256 i = 0; i < 100; i++) {
+            uint256 loop_key = i;
             s_mapping[key] += i;
             s_mapping_bad[i] += i;
+            s_mapping_bad[loop_key] += i;
+            
+            sum += s_mapping[key];
+            sum_bad += s_mapping_bad[loop_key];
         }
 
         return s_result;

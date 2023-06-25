@@ -291,7 +291,6 @@ class SymbolicExecutionEngine:
     ):
         if not (parts := self.split_assignment(instruction.expression)):
             # TODO these might be func calls
-            # TODO does not work for structs and list index assignments
             print("Unable to resolve assignment", instruction)
             return
 
@@ -303,7 +302,7 @@ class SymbolicExecutionEngine:
 
         # PATTERN 4: Expensive operations in a loop
         # check if a storage variable is being written to inside a loop
-        self.check_storage_accesses(instruction, variable, loop_scope)
+        self.check_storage_accesses(instruction, variable, loop_scope, symbolic_table)
 
         current_sym_value = symbolic_table.get_symbol_value(variable)
 
@@ -534,7 +533,9 @@ class SymbolicExecutionEngine:
 
         # PATTERN 4: Expensive operations in a loop
         # check if first_operand is a storage variable
-        self.check_storage_accesses(instruction, first_operand, loop_scope)
+        self.check_storage_accesses(
+            instruction, first_operand, loop_scope, symbolic_table
+        )
 
         # convert operand to correct format to perform operation
         first_operand = self.build_operand_from_tmp(
@@ -546,7 +547,9 @@ class SymbolicExecutionEngine:
 
         # PATTERN 4: Expensive operations in a loop
         # check if second_operand is a storage variable
-        self.check_storage_accesses(instruction, second_operand, loop_scope)
+        self.check_storage_accesses(
+            instruction, second_operand, loop_scope, symbolic_table
+        )
 
         # convert operand to correct format to perform operation
         second_operand = self.build_operand_from_tmp(
@@ -683,7 +686,9 @@ class SymbolicExecutionEngine:
                 # PATTERN 4: Expensive operations in a loop
                 # check if a storage variable is being read in assignment
                 if instruction:
-                    self.check_storage_accesses(instruction, token, loop_scope)
+                    self.check_storage_accesses(
+                        instruction, token, loop_scope, symbolic_table
+                    )
 
                 result_list.append(
                     symbolic_table.get_symbol_value(token)
@@ -750,9 +755,18 @@ class SymbolicExecutionEngine:
         return None
 
     def check_storage_accesses(
-        self, instruction: Node, variable_name: str, loop_scope: list
+        self,
+        instruction: Node,
+        variable_name: str,
+        loop_scope: list,
+        symbolic_table: SymbolicTable,
     ):
-        if self.is_storage_variable_accessed(instruction, variable_name) and loop_scope:
+        if (
+            self.is_storage_variable_accessed(
+                instruction, variable_name, loop_scope, symbolic_table
+            )
+            and loop_scope
+        ):
             print("-----STATE VARIABLE ACCESSED IN LOOP-----")
             print("  Variable -> ", variable_name)
             print("  Instruction -> ", instruction)
@@ -763,23 +777,52 @@ class SymbolicExecutionEngine:
         return False
 
     def is_storage_variable_accessed(
-        self, instruction: Node, variable_name: str
+        self,
+        instruction: Node,
+        variable_name: str,
+        loop_scope: list,
+        symbolic_table: SymbolicTable,
     ) -> bool:
         # sourcery skip: remove-unnecessary-cast
-        return any(
-            s_variable.name == self.sanitize_variable_name(str(variable_name))
-            for s_variable in instruction.state_variables_written
-            + instruction.state_variables_read
+        sanitized_variable_name, indexable_part = self.sanitize_variable_name(
+            str(variable_name)
         )
 
-    def sanitize_variable_name(self, name: str) -> str:
+        # top-level shallow check for mappings and lists
+        # this first condition only asserts that the mapping or list was accessed, but the specific element
+        if any(
+            s_variable.name == sanitized_variable_name
+            for s_variable in instruction.state_variables_written
+            + instruction.state_variables_read
+        ):
+            symbolic_variable = symbolic_table.get_symbol(sanitized_variable_name)
+
+            # always a pattern
+            if symbolic_variable.is_primitive():
+                return True
+
+            if symbolic_indexable_part := symbolic_table.get_symbol(indexable_part):
+                # if the key was declared in the current scope, then it's a false positive
+                return symbolic_indexable_part.loop_scope != loop_scope[-1]
+
+            # most likely a constant value key
+            return True
+
+        return False
+
+    def sanitize_variable_name(self, name: str):
         """Sanitize indexable part of variable
 
-        Returns: sanitized variable name
+        Returns:
+            If name contains square brackets: mapping, key
+            If name doesn't contain square brackets: variable
         """
 
-        # TODO extend this to structs, for now only works for mappings and arrays. Both use "[]"".
-        return re.sub(r"\[[^)]*\]", "", name)
+        # TODO handle structs
+        if result := re.search(r"(\w+)\[(.*?)\]", name):
+            return result[1], result[2]
+        else:
+            return name, None
 
     def get_symbol_type(self, slither_type: Type):
         if isinstance(slither_type, MappingType):

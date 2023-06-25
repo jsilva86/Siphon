@@ -26,7 +26,6 @@ class SymbolicTable:
         sorted_scopes = sorted(self._table.keys())  # Sort scopes in ascending order
 
         for scope in sorted_scopes:
-            print(scope)
             symbol_list = self._table[scope]
             symbols.extend(
                 f"Scope: {scope}, Symbol: {symbol.name}, Value: {symbol.value}, Type: {symbol.type}"
