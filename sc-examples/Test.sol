@@ -161,10 +161,13 @@ contract Test2 {
     function func6(uint256[] memory list, address key) public returns (uint256) {
         uint256 min_length = 10;
         uint256 sum = 0;
-        uint256 i = 0;
+        uint256 i;
         for(i = 0; i < s_list.length; i++) {
             if (list.length > min_length) {
                 sum += i;
+            }
+            if (list.length > min_length + i) {
+                sum -= i;
             } 
         }
 

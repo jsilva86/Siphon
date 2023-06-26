@@ -276,6 +276,17 @@ class SymbolicExecutionEngine:
         print("  Is if Opaque -> ", is_if_opaque)
         print("  Is else Opaque -> ", is_if_not_opaque)
 
+        # PATTERN 4: Loop invariant conditions
+        # if inside a loop check if any of the variables
+        # is bounded to the current scope
+
+        print(
+            "  Is loop invariant condition -> ",
+            not self.condition_contains_loop_variable(
+                if_operation, symbolic_table, loop_scope
+            ),
+        )
+
         return {
             "should_traverse_true_path": is_true_path_sat,
             "should_traverse_false_path": is_false_path_sat,
@@ -299,6 +310,21 @@ class SymbolicExecutionEngine:
 
         # HACK: avoid changing symbolic value of loop bound variable when stepping
         if instruction.sons and instruction.sons[0].type == NodeType.IFLOOP:
+            return
+
+        # HACK: avoid giving a value to loop bounded variables
+        if (
+            instruction.sons[0]
+            and instruction.sons[0].type == NodeType.STARTLOOP
+            and instruction.sons[0].sons[0]
+            and instruction.sons[0].sons[0].type == NodeType.IFLOOP
+        ):
+            # update the symbol to reflect the current scope
+            # FIXME after the loop finishes this scope will be incorrect
+            symbol = symbolic_table.get_symbol(variable)
+            loop_scope = loop_scope[-1] if loop_scope else 0
+            symbolic_table.push_symbol(variable, symbol.type, loop_scope)
+
             return
 
         # PATTERN 4: Expensive operations in a loop
@@ -330,8 +356,6 @@ class SymbolicExecutionEngine:
         symbolic_table.push_symbol(
             instruction.variable_declaration.name, symbol_type, loop_scope
         )
-
-        s = symbolic_table.get_symbol(instruction.variable_declaration.name)
 
         # HACK: avoid giving a value to loop bounded variables
         if (
@@ -406,7 +430,7 @@ class SymbolicExecutionEngine:
     def evaluate_default(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        # print("default inst", symbolic_table)
+        print("default inst", symbolic_table)
         pass
 
     def check_path_constraints(
@@ -839,3 +863,25 @@ class SymbolicExecutionEngine:
             return SymbolType.ARRAY
 
         return SymbolType.PRIMITIVE
+
+    def condition_contains_loop_variable(
+        self, condition, symbolic_table: SymbolicTable, loop_scope: list
+    ):
+        if not loop_scope:
+            return False
+
+        # get symbols in the current scope
+        loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope[-1])
+
+        # check if any of the symbols is present in the condition
+        return any(
+            self.is_symbol_in_condition(condition, symbol)
+            for symbol in loop_bounded_symbols
+        )
+
+    def is_symbol_in_condition(self, expr, symbol):
+        if isinstance(expr, (ArithRef, BoolRef)):
+            for arg in expr.children():
+                if self.is_symbol_in_condition(arg, symbol):
+                    return True
+        return expr == symbol.value

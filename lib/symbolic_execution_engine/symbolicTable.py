@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 from enum import Enum
 
 from z3 import *
@@ -107,6 +107,18 @@ class SymbolicTable:
             if (symbol := self.get_symbol(symbol_name))
             else Int(symbol_name)
         )
+
+    def get_symbols_by_scope(self, loop_scope: int) -> List[Symbol]:
+        """
+        Retrieve symbols with the specified scope from the Symbolic Table.
+
+        Args:
+            scope: The scope to filter the symbols.
+
+        Returns:
+            List of symbols with the specified scope.
+        """
+        return self._table.get(loop_scope, [])
 
     @property
     def table(self) -> Dict:
