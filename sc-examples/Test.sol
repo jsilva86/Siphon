@@ -89,8 +89,12 @@ contract Test2 {
     function func1(uint256 x) public returns (uint256) {
         uint256 result;
 
-        if (x > 50 && x < 100) {
-            result =  x * 2;
+        if (x > 50) {
+            result = x * 2;
+
+            if(x < 25) {
+                result = 3;
+            }
         } else {
             result = 200;
         }

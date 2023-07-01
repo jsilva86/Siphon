@@ -1,12 +1,18 @@
 import re
 from z3 import *
+from enum import Enum
 
 from slither.core.cfg.node import Node
-from slither.core.solidity_types.type import Type
-from slither.core.solidity_types.mapping_type import MappingType
-from slither.core.solidity_types.array_type import ArrayType
 
+from lib.cfg_builder.block import Block
 from lib.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
+
+
+class PatternType(Enum):
+    REDUNDANT_CODE = 1
+    OPAQUE_PREDICATE = 2
+    EXPENSIVE_OPERATION_IN_LOOP = 4
+    LOOP_INVARIANT_CONDITION = 6
 
 
 class PatternMatcher:
@@ -15,7 +21,7 @@ class PatternMatcher:
         self._solver: Solver = Solver()
 
         # pattern candidates
-        self._pattern_candidates: list[Pattern] = {}
+        self._pattern_candidates: dict[int, list[Pattern]] = {}
 
         # pattern candidates
         self._patterns: list[Pattern] = {}
@@ -29,10 +35,38 @@ class PatternMatcher:
         """
         return self._solver
 
+    def __str__(self):
+        output = "    *Pattern Candidates*   \n\n"
+        for _, patterns in self._pattern_candidates.items():
+            for pattern in patterns:
+                output += str(pattern)
+            output += "\n"
+        return output
+
+    def add_pattern_candidate(self, pattern):
+        instruction = pattern.instruction
+        pattern_type = pattern.pattern_type
+
+        # TODO not this simple for the other patterns
+        # same instruction can have multiple storage variables
+        if pattern_type in [
+            PatternType.REDUNDANT_CODE,
+            PatternType.OPAQUE_PREDICATE,
+        ]:
+            if instruction.node_id in self._pattern_candidates:
+                existing_patterns = self._pattern_candidates[instruction.node_id]
+                for existing_pattern in existing_patterns:
+                    if existing_pattern.pattern_type == pattern_type:
+                        return  # Pattern already exists, do not add again
+
+        self._pattern_candidates.setdefault(instruction.node_id, []).append(pattern)
+
     # PATTERN 1: Redundant code
     # check if a branch is unsatisfiable (UNSAT)
     def p1_redundant_code(
         self,
+        block: Block,
+        instruction: Node,
         condition,
         path_contraints: list,
     ):
@@ -42,30 +76,31 @@ class PatternMatcher:
         Check if a branch is unsatisfiable (UNSAT)
         """
         # Get the current path constraints
-        # TODO maybe store it directly like this
 
         check_constraint = condition
 
         if path_contraints:
             check_constraint = And(*path_contraints, condition)
 
-        solver_result = self.solver.check(check_constraint)
+        is_condition_sat = self.solver.check(check_constraint) == sat
 
-        if solver_result == unsat:
-            print("-----PATTERN 1: Redundant Code-----")
-            print("  condition -> ", condition)
-            print("  constraints -> ", path_contraints)
+        if not is_condition_sat:
+            self.add_pattern_candidate(
+                RedundantCodePattern(block, instruction, condition, path_contraints)
+            )
 
-        return solver_result
+        return is_condition_sat
 
-    def p2_opaque_predicate(self, condition, path_contraints: list):
+    def p2_opaque_predicate(
+        self, block: Block, instruction: Node, condition, path_contraints: list
+    ):
         """
         PATTERN 2: Opaque predicates
 
         Check if the branch condition is redundant
         """
 
-        # check if the branch conditions is a tautologie,
+        # check if the branch conditions is a tautology
         # by proving that the negation of the implication is unsat
         premise = And(path_contraints)
         implication = Implies(premise, condition)
@@ -73,12 +108,13 @@ class PatternMatcher:
         solver_result = self.solver.check(Not(implication))
 
         if solver_result == unsat:
-            print("-----PATTERN 2: Opaque Predicate-----")
-            print("  condition -> ", condition)
-            print("  constraints -> ", path_contraints)
+            self.add_pattern_candidate(
+                OpaquePredicatePattern(block, instruction, condition, path_contraints)
+            )
 
     def p4_expensive_operations_in_loop(
         self,
+        block: Block,
         instruction: Node,
         variable_name: str,
         loop_scope: list,
@@ -95,14 +131,19 @@ class PatternMatcher:
             )
             and loop_scope
         ):
-            print("-----PATTERN 4: Expensive operations in a loop-----")
-            print("  Variable -> ", variable_name)
-            print("  Instruction -> ", instruction)
-            print("  Current Scope -> ", loop_scope[-1])
-            print("  Scope depth -> ", loop_scope)
+            self.add_pattern_candidate(
+                ExpensiveOperationInLoopPattern(
+                    block, instruction, variable_name, loop_scope[-1]
+                )
+            )
 
     def p6_loop_invariant_condition(
-        self, condition, symbolic_table: SymbolicTable, loop_scope: list
+        self,
+        block: Block,
+        instruction: Node,
+        condition,
+        symbolic_table: SymbolicTable,
+        loop_scope: list,
     ):
         """
         PATTERN 4: Loop invariant condition
@@ -122,9 +163,14 @@ class PatternMatcher:
             self.is_symbol_in_condition(condition, symbol)
             for symbol in loop_bounded_symbols
         ):
-            print("-----PATTERN 6: Loop invariant condition-----")
-            print("  condition -> ", condition)
-            print("  current loop scope -> ", loop_scope[-1])
+            # print("-----PATTERN 6: Loop invariant condition-----")
+            # print("  condition -> ", condition)
+            # print("  current loop scope -> ", loop_scope[-1])
+            self.add_pattern_candidate(
+                LoopInvariantConditionPattern(
+                    block, instruction, condition, loop_scope[-1]
+                )
+            )
 
     def is_storage_variable_accessed(
         self,
@@ -205,5 +251,110 @@ class PatternMatcher:
 
 
 class Pattern:
-    def __init__(self):
-        pass
+    def __init__(self, block, instruction, pattern_type):
+        self._block = block
+        self._instruction = instruction
+        self._pattern_type = pattern_type
+
+    @property
+    def block(self):
+        return self._block
+
+    @property
+    def instruction(self):
+        return self._instruction
+
+    @property
+    def pattern_type(self):
+        return self._pattern_type
+
+    def __str__(self):
+        return f"Block: {self.block.id}\nInstruction: {self.instruction}\n"
+
+
+class RedundantCodePattern(Pattern):
+    def __init__(self, block, instruction, condition, path_constraints):
+        super().__init__(block, instruction, PatternType.REDUNDANT_CODE)
+        self._condition = condition
+        self._path_constraints = path_constraints
+
+    @property
+    def condition(self):
+        return self._condition
+
+    @property
+    def path_constraints(self):
+        return self._path_constraints
+
+    def __str__(self):
+        output = f"-----PATTERN 1: {self.pattern_type.name}-----\n"
+        output += super().__str__()
+        output += f"Condition: {self.condition}\n"
+        output += f"Path Constraints: {self.path_constraints}\n"
+        return output
+
+
+class OpaquePredicatePattern(Pattern):
+    def __init__(self, block, instruction, condition, path_constraints):
+        super().__init__(block, instruction, PatternType.OPAQUE_PREDICATE)
+        self._condition = condition
+        self._path_constraints = path_constraints
+
+    @property
+    def condition(self):
+        return self._condition
+
+    @property
+    def path_constraints(self):
+        return self._path_constraints
+
+    def __str__(self):
+        output = f"-----PATTERN 2: {self.pattern_type.name}-----\n"
+        output += super().__str__()
+        output += f"Condition: {self.condition}\n"
+        output += f"Path Constraints: {self.path_constraints}\n"
+        return output
+
+
+class ExpensiveOperationInLoopPattern(Pattern):
+    def __init__(self, block, instruction, variable, current_scope):
+        super().__init__(block, instruction, PatternType.EXPENSIVE_OPERATION_IN_LOOP)
+        self._variable = variable
+        self._current_scope = current_scope
+
+    @property
+    def variable(self):
+        return self._variable
+
+    @property
+    def current_scope(self):
+        return self._current_scope
+
+    def __str__(self):
+        output = f"-----PATTERN 4: {self.pattern_type.name}-----\n"
+        output += super().__str__()
+        output += f"Variable: {self.variable}\n"
+        output += f"Current Scope: {self.current_scope}\n"
+        return output
+
+
+class LoopInvariantConditionPattern(Pattern):
+    def __init__(self, block, instruction, condition, current_scope):
+        super().__init__(block, instruction, PatternType.LOOP_INVARIANT_CONDITION)
+        self._condition = condition
+        self._current_scope = current_scope
+
+    @property
+    def condition(self):
+        return self._condition
+
+    @property
+    def current_scope(self):
+        return self._current_scope
+
+    def __str__(self):
+        output = f"-----PATTERN 6: {self.pattern_type.name}-----\n"
+        output += super().__str__()
+        output += f"Condition: {self.condition}\n"
+        output += f"Current Scope: {self.current_scope}\n"
+        return output

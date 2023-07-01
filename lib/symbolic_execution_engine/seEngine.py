@@ -81,6 +81,8 @@ class SymbolicExecutionEngine:
         # start executing from the initial block
         self.execute_block(self.cfg.head, symbolic_table, path_constraints, loop_scope)
 
+        print(self.pattern_matcher)
+
     def execute_block(
         self,
         block: Block,
@@ -170,7 +172,7 @@ class SymbolicExecutionEngine:
         match instruction.type:
             case NodeType.IF:
                 return self.evaluate_if(
-                    instruction, symbolic_table, path_constraints, loop_scope
+                    block, instruction, symbolic_table, path_constraints, loop_scope
                 )
 
             case NodeType.VARIABLE:
@@ -180,7 +182,7 @@ class SymbolicExecutionEngine:
 
             case NodeType.EXPRESSION:
                 self.evaluate_expression(
-                    instruction, symbolic_table, loop_scope, path_constraints
+                    block, instruction, symbolic_table, loop_scope, path_constraints
                 )
 
             case NodeType.STARTLOOP:
@@ -203,29 +205,36 @@ class SymbolicExecutionEngine:
 
     def evaluate_if(
         self,
+        block: Block,
         instruction: Node,
         symbolic_table: SymbolicTable,
         path_contraints: list,
         loop_scope: list,
     ):
-        if_operation = self.build_if_operation(instruction, symbolic_table, loop_scope)
+        if_operation = self.build_if_operation(
+            block, instruction, symbolic_table, loop_scope
+        )
         if_not_operation = Not(if_operation)
 
         # PATTERN 1: Redundant code
         is_true_path_sat = self.pattern_matcher.p1_redundant_code(
-            if_operation, path_contraints
+            block, instruction, if_operation, path_contraints
         )
         is_false_path_sat = self.pattern_matcher.p1_redundant_code(
-            if_not_operation, path_contraints
+            block, instruction, if_not_operation, path_contraints
         )
 
         # PATTERN 2: Opaque predicates
-        self.pattern_matcher.p2_opaque_predicate(if_operation, path_contraints)
-        self.pattern_matcher.p2_opaque_predicate(if_not_operation, path_contraints)
+        self.pattern_matcher.p2_opaque_predicate(
+            block, instruction, if_operation, path_contraints
+        )
+        self.pattern_matcher.p2_opaque_predicate(
+            block, instruction, if_not_operation, path_contraints
+        )
 
         # PATTERN 6: Loop invariant conditions
         self.pattern_matcher.p6_loop_invariant_condition(
-            if_operation, symbolic_table, loop_scope
+            block, instruction, if_operation, symbolic_table, loop_scope
         )
 
         return {
@@ -237,6 +246,7 @@ class SymbolicExecutionEngine:
 
     def evaluate_expression(
         self,
+        block: Block,
         instruction: Node,
         symbolic_table: SymbolicTable,
         loop_scope: list,
@@ -271,7 +281,7 @@ class SymbolicExecutionEngine:
         # PATTERN 4: Expensive operations (WRITE) in a loop
         # check if assignment is to a storage variable
         self.pattern_matcher.p4_expensive_operations_in_loop(
-            instruction, variable, loop_scope, symbolic_table
+            block, instruction, variable, loop_scope, symbolic_table
         )
 
         current_sym_value = symbolic_table.get_symbol_value(variable)
@@ -281,6 +291,7 @@ class SymbolicExecutionEngine:
             operation,
             assignment,
             symbolic_table,
+            block,
             instruction,
             loop_scope,
         )
@@ -349,7 +360,9 @@ class SymbolicExecutionEngine:
         path_contraints: list,
         loop_scope: list,
     ):
-        if_operation = self.build_if_operation(instruction, symbolic_table, loop_scope)
+        if_operation = self.build_if_operation(
+            block, instruction, symbolic_table, loop_scope
+        )
 
         # FIXME: after executing the loop, the constraint might not need to be propagated
         if_not_operation = Not(if_operation)
@@ -387,7 +400,11 @@ class SymbolicExecutionEngine:
         return self.solver.check(check_constraint) == sat
 
     def build_if_operation(
-        self, instruction: Node, symbolic_table: SymbolicTable, loop_scope: list
+        self,
+        block: Block,
+        instruction: Node,
+        symbolic_table: SymbolicTable,
+        loop_scope: list,
     ):
         # store all operations being made
         operations = {}
@@ -460,7 +477,13 @@ class SymbolicExecutionEngine:
 
             # the operands can also be TMPs and symbolic values
             first_operand, second_operand = self.resolve_operands(
-                operations, operation, operator, symbolic_table, instruction, loop_scope
+                operations,
+                operation,
+                operator,
+                symbolic_table,
+                block,
+                instruction,
+                loop_scope,
             )
 
             # apply the operation to the operands
@@ -483,6 +506,7 @@ class SymbolicExecutionEngine:
         operation,
         operator,
         symbolic_table: SymbolicTable,
+        block: Block,
         instruction: Node,
         loop_scope: list,
     ):  # sourcery skip: extract-duplicate-method
@@ -498,12 +522,12 @@ class SymbolicExecutionEngine:
         # PATTERN 4: Expensive operations in a loop
         # check if first_operand is a storage variable
         self.pattern_matcher.p4_expensive_operations_in_loop(
-            instruction, first_operand, loop_scope, symbolic_table
+            block, instruction, first_operand, loop_scope, symbolic_table
         )
 
         # convert operand to correct format to perform operation
         first_operand = self.build_operand_from_tmp(
-            first_operand, symbolic_table, instruction, loop_scope
+            first_operand, symbolic_table, block, instruction, loop_scope
         )
 
         if self.is_temporary_operand(second_operand):
@@ -512,12 +536,12 @@ class SymbolicExecutionEngine:
         # PATTERN 4: Expensive operations in a loop
         # check if second_operand is a storage variable
         self.pattern_matcher.p4_expensive_operations_in_loop(
-            instruction, second_operand, loop_scope, symbolic_table
+            block, instruction, second_operand, loop_scope, symbolic_table
         )
 
         # convert operand to correct format to perform operation
         second_operand = self.build_operand_from_tmp(
-            second_operand, symbolic_table, instruction, loop_scope
+            second_operand, symbolic_table, block, instruction, loop_scope
         )
 
         # return the enhanced operands
@@ -527,6 +551,7 @@ class SymbolicExecutionEngine:
         self,
         operand,
         symbolic_table: SymbolicTable,
+        block: Block,
         instruction: Node,
         loop_scope: list,
     ):
@@ -543,11 +568,14 @@ class SymbolicExecutionEngine:
         elif any(operator in str(operand) for operator in arithmetic_operators):
             # result (c)+ x + TMP_13(uint256)
             return self.build_symbolic_value(
-                operand, symbolic_table, instruction, loop_scope
+                operand, symbolic_table, block, instruction, loop_scope
             )
 
-        # standalone values
-        # ex: "x"
+        # numeric values
+        if self.is_numeric(operand):
+            return operand
+
+        # list.length
         return symbolic_table.get_symbol_value(operand)
 
     def get_operator(self, operation):
@@ -601,11 +629,12 @@ class SymbolicExecutionEngine:
         operation: str,
         assignment: str,
         symbolic_table: SymbolicTable,
+        block: Block,
         instruction: Node,
         loop_scope: list,
     ):
         assign_symb_value = self.build_symbolic_value(
-            assignment, symbolic_table, instruction, loop_scope
+            assignment, symbolic_table, block, instruction, loop_scope
         )
 
         if operation == "*=":
@@ -625,6 +654,7 @@ class SymbolicExecutionEngine:
         self,
         expression: str,
         symbolic_table: SymbolicTable,
+        block: Block = None,
         instruction: Node = None,
         loop_scope: list = None,
     ):
@@ -651,7 +681,7 @@ class SymbolicExecutionEngine:
                 # check if a storage variable is being read in assignment
                 if instruction:
                     self.pattern_matcher.p4_expensive_operations_in_loop(
-                        instruction, token, loop_scope, symbolic_table
+                        block, instruction, token, loop_scope, symbolic_table
                     )
 
                 result_list.append(
