@@ -102,11 +102,8 @@ class SymbolicTable:
         Returns:
             The value of the symbol corresponding to the given symbol name, or itself if not found.
         """
-        return (
-            symbol.value
-            if (symbol := self.get_symbol(symbol_name))
-            else Int(symbol_name)
-        )
+
+        return symbol.value if (symbol := self.get_symbol(symbol_name)) else symbol_name
 
     def get_symbols_by_scope(self, loop_scope: int) -> List[Symbol]:
         """

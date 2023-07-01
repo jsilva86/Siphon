@@ -26,7 +26,7 @@ def get_cfg_by_function(slitherSingleton: SlitherSingleton):
             0
         ]  # assume unique name
         for function in functions:
-            if function.name == "func6":
+            if function.name == "func1":
                 cfg = CFG(contract, function)
                 cfg.build_cfg()
 

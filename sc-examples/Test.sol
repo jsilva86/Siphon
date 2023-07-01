@@ -111,7 +111,6 @@ contract Test2 {
             result = x * 3;
         }
 
-        // This code block is unreachable
         if (result + x > 100) {
             result = 100;
         }

@@ -41,13 +41,13 @@ class PatternMatcher:
 
         Check if a branch is unsatisfiable (UNSAT)
         """
-
         # Get the current path constraints
         # TODO maybe store it directly like this
-        path_constraints = And(path_contraints)
 
-        # Check if the branch is reachable
-        check_constraint = And(path_constraints, condition)
+        check_constraint = condition
+
+        if path_contraints:
+            check_constraint = And(*path_contraints, condition)
 
         solver_result = self.solver.check(check_constraint)
 
