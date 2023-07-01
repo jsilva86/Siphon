@@ -133,6 +133,7 @@ contract Test2 {
             for(uint256 j = 0; j < 100; j++) {
                 if (s_result + 1  + j < s_condition) {
                     x += s_variable * i;
+                    s_variable *= i * j;
                 }
 
                 x = 9999;
@@ -166,7 +167,7 @@ contract Test2 {
             if (list.length > min_length) {
                 sum += i;
             }
-            if (list.length > min_length + i) {
+            if (s_list.length > min_length + i) {
                 sum -= i;
             } 
         }

@@ -9,36 +9,19 @@ from slither.core.solidity_types.type import Type
 from slither.core.solidity_types.array_type import ArrayType
 from slither.core.solidity_types.mapping_type import MappingType
 
-from lib.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
 from lib.cfg_builder.cfg import CFG
 from lib.cfg_builder.block import Block
+from lib.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
+from lib.symbolic_execution_engine.patternMatcher import PatternMatcher
 
 
 class SymbolicExecutionEngine:
     def __init__(self, cfg: CFG):
-        # Z3 solver
-        self._solver: Solver = Solver()
+        # Pattern Matcher
+        self._pattern_matcher: PatternMatcher = PatternMatcher()
 
         # CFG being analysed
         self._cfg: CFG = cfg
-
-        # Symbolic table to keep track of the symbolic values of variables
-        self._symbolic_table: SymbolicTable = SymbolicTable()
-
-        # Store the current path_contraints
-        self._path_constraints: List = []
-
-        # A CFG can have several paths that need to be traversed
-        self._paths: List = []
-
-    @property
-    def solver(self) -> Solver:
-        """Returns the Z3 solver
-
-        Returns:
-            Solver: Solver
-        """
-        return self._solver
 
     @property
     def cfg(self) -> CFG:
@@ -50,31 +33,13 @@ class SymbolicExecutionEngine:
         return self._cfg
 
     @property
-    def symbolic_table(self) -> SymbolicTable:
-        """Returns the current Symbolic Table state
+    def pattern_matcher(self) -> PatternMatcher:
+        """Returns the Pattern Matcher instance
 
         Returns:
-            Symbolic Table: Symbolic Table of variables
+            PatternMatcher: PatternMatcher
         """
-        return self._symbolic_table
-
-    @property
-    def path_contraints(self) -> List:
-        """Returns the list of current path contraints
-
-        Returns:
-            list: path contraints
-        """
-        return list(self._path_constraints)
-
-    @property
-    def paths(self) -> List:
-        """Returns the list of branches being explored
-
-        Returns:
-            list: branches
-        """
-        return list(self._paths)
+        return self._pattern_matcher
 
     def init_symbolic_table(self, symbolic_table: SymbolicTable):
         """Initialise the variables common to all paths"""
@@ -246,45 +211,21 @@ class SymbolicExecutionEngine:
         if_operation = self.build_if_operation(instruction, symbolic_table, loop_scope)
         if_not_operation = Not(if_operation)
 
-        print("-----Analising IF-----")
-        print("  Operation -> ", if_operation)
-        print("  Constraints -> ", path_contraints)
-
         # PATTERN 1: Redundant code
-        # check if any of the branches are unsatisfiable
-
-        is_true_path_sat = self.check_path_constraints(if_operation, path_contraints)
-        is_false_path_sat = self.check_path_constraints(
+        is_true_path_sat = self.pattern_matcher.p1_redundant_code(
+            if_operation, path_contraints
+        )
+        is_false_path_sat = self.pattern_matcher.p1_redundant_code(
             if_not_operation, path_contraints
         )
 
-        print("  Is if sat -> ", is_true_path_sat)
-        print("  Is else sat -> ", is_false_path_sat)
-
         # PATTERN 2: Opaque predicates
-        # check if any of the branch conditions are tautologies,
-        # prove that the negation of the implication is unsat
+        self.pattern_matcher.p2_opaque_predicate(if_operation, path_contraints)
+        self.pattern_matcher.p2_opaque_predicate(if_not_operation, path_contraints)
 
-        premise = And(path_contraints)
-
-        if_implication = Implies(premise, if_operation)
-        if_not_implication = Implies(premise, if_not_operation)
-
-        is_if_opaque = self.solver.check(Not(if_implication)) == unsat
-        is_if_not_opaque = self.solver.check(Not(if_not_implication)) == unsat
-
-        print("  Is if Opaque -> ", is_if_opaque)
-        print("  Is else Opaque -> ", is_if_not_opaque)
-
-        # PATTERN 4: Loop invariant conditions
-        # if inside a loop check if any of the variables
-        # is bounded to the current scope
-
-        print(
-            "  Is loop invariant condition -> ",
-            not self.condition_contains_loop_variable(
-                if_operation, symbolic_table, loop_scope
-            ),
+        # PATTERN 6: Loop invariant conditions
+        self.pattern_matcher.p6_loop_invariant_condition(
+            if_operation, symbolic_table, loop_scope
         )
 
         return {
@@ -327,9 +268,11 @@ class SymbolicExecutionEngine:
 
             return
 
-        # PATTERN 4: Expensive operations in a loop
-        # check if a storage variable is being written to inside a loop
-        self.check_storage_accesses(instruction, variable, loop_scope, symbolic_table)
+        # PATTERN 4: Expensive operations (WRITE) in a loop
+        # check if assignment is to a storage variable
+        self.pattern_matcher.p4_expensive_operations_in_loop(
+            instruction, variable, loop_scope, symbolic_table
+        )
 
         current_sym_value = symbolic_table.get_symbol_value(variable)
 
@@ -408,20 +351,16 @@ class SymbolicExecutionEngine:
     ):
         if_operation = self.build_if_operation(instruction, symbolic_table, loop_scope)
 
-        is_true_path_sat = self.check_path_constraints(if_operation, path_contraints)
-
-        # only traverse loop body once
-        should_traverse_loop = is_true_path_sat and not block.visited
-
         # FIXME: after executing the loop, the constraint might not need to be propagated
         if_not_operation = Not(if_operation)
 
         # to avoid loops
         is_visited = block.visited
         block.visited = True
+
         # FIXME: since we are only stopping the loop from happening, all instructions prior will still be executed again
         return {
-            "should_traverse_true_path": should_traverse_loop,
+            "should_traverse_true_path": not is_visited,
             "should_traverse_false_path": not is_visited,  # only exit out of loop once
             "true_path_constraint": if_operation,
             "false_path_constraint": if_not_operation,
@@ -430,7 +369,7 @@ class SymbolicExecutionEngine:
     def evaluate_default(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        print("default inst", symbolic_table)
+        # print("default inst", symbolic_table)
         pass
 
     def check_path_constraints(
@@ -558,7 +497,7 @@ class SymbolicExecutionEngine:
 
         # PATTERN 4: Expensive operations in a loop
         # check if first_operand is a storage variable
-        self.check_storage_accesses(
+        self.pattern_matcher.p4_expensive_operations_in_loop(
             instruction, first_operand, loop_scope, symbolic_table
         )
 
@@ -572,7 +511,7 @@ class SymbolicExecutionEngine:
 
         # PATTERN 4: Expensive operations in a loop
         # check if second_operand is a storage variable
-        self.check_storage_accesses(
+        self.pattern_matcher.p4_expensive_operations_in_loop(
             instruction, second_operand, loop_scope, symbolic_table
         )
 
@@ -708,10 +647,10 @@ class SymbolicExecutionEngine:
             elif self.is_numeric(token):
                 result_list.append(RealVal(token))
             else:
-                # PATTERN 4: Expensive operations in a loop
+                # PATTERN 4: Expensive operations (READ) in a loop
                 # check if a storage variable is being read in assignment
                 if instruction:
-                    self.check_storage_accesses(
+                    self.pattern_matcher.p4_expensive_operations_in_loop(
                         instruction, token, loop_scope, symbolic_table
                     )
 
@@ -779,83 +718,6 @@ class SymbolicExecutionEngine:
 
         return None
 
-    def check_storage_accesses(
-        self,
-        instruction: Node,
-        variable_name: str,
-        loop_scope: list,
-        symbolic_table: SymbolicTable,
-    ):
-        if (
-            self.is_storage_variable_accessed(
-                instruction, variable_name, loop_scope, symbolic_table
-            )
-            and loop_scope
-        ):
-            print("-----STORAGE VARIABLE ACCESSED IN LOOP-----")
-            print("  Variable -> ", variable_name)
-            print("  Instruction -> ", instruction)
-            print("  Current Scope -> ", loop_scope[-1])
-            print("  Scope depth -> ", loop_scope)
-            # TODO: create report here
-            return True
-        return False
-
-    def is_storage_variable_accessed(
-        self,
-        instruction: Node,
-        variable_name: str,
-        loop_scope: list,
-        symbolic_table: SymbolicTable,
-    ) -> bool:
-        # sourcery skip: remove-unnecessary-cast
-        sanitized_variable_name, indexable_part = self.sanitize_variable_name(
-            str(variable_name)
-        )
-
-        # top-level shallow check for mappings and lists
-        # this first condition only asserts that the mapping or list was accessed, but the specific element
-        if any(
-            s_variable.name == sanitized_variable_name
-            for s_variable in instruction.state_variables_written
-            + instruction.state_variables_read
-        ):
-            symbolic_variable = symbolic_table.get_symbol(sanitized_variable_name)
-
-            # always a pattern
-            if symbolic_variable.is_primitive():
-                return True
-
-            # calling method over list (list.length)
-            if symbolic_variable.is_array() and not indexable_part:
-                return True
-
-            if symbolic_indexable_part := symbolic_table.get_symbol(indexable_part):
-                # if the key was declared in the current scope, then it's a false positive
-                return symbolic_indexable_part.loop_scope != loop_scope[-1]
-
-            # most likely a constant value key
-            return True
-
-        return False
-
-    def sanitize_variable_name(self, name: str):
-        """Sanitize indexable part of variable
-
-        Returns:
-            If name contains square brackets: mapping, key
-            If name doesn't contain square brackets: variable
-        """
-
-        # TODO handle structs
-        if result := re.search(r"(\w+)\[(.*?)\]", name):
-            return result[1], result[2]
-
-        # ignore everything after "."
-        # FIXME probably won't work for structs
-        parts = name.split(".")
-        return parts[0], None
-
     def get_symbol_type(self, slither_type: Type):
         if isinstance(slither_type, MappingType):
             return SymbolType.MAPPING
@@ -863,25 +725,3 @@ class SymbolicExecutionEngine:
             return SymbolType.ARRAY
 
         return SymbolType.PRIMITIVE
-
-    def condition_contains_loop_variable(
-        self, condition, symbolic_table: SymbolicTable, loop_scope: list
-    ):
-        if not loop_scope:
-            return False
-
-        # get symbols in the current scope
-        loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope[-1])
-
-        # check if any of the symbols is present in the condition
-        return any(
-            self.is_symbol_in_condition(condition, symbol)
-            for symbol in loop_bounded_symbols
-        )
-
-    def is_symbol_in_condition(self, expr, symbol):
-        if isinstance(expr, (ArithRef, BoolRef)):
-            for arg in expr.children():
-                if self.is_symbol_in_condition(arg, symbol):
-                    return True
-        return expr == symbol.value
