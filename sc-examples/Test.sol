@@ -2,11 +2,8 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-/**
- * @title Storage
- * @dev Store & retrieve value in a variable
- * @custom:dev-run-script ./scripts/deploy_with_ethers.ts
- */
+import "./Test2.sol";
+
 contract Test {
     int a = 69;
     function one() private {
@@ -177,4 +174,32 @@ contract Test2 {
 
         return s_result;
     } 
+
+    function pure_func() pure public returns (uint256) {
+        return 12;
+    }
+
+    function func_arg(uint256 i) pure public returns (uint256) {
+        return 10 * i;
+    }
+
+    function func_with_lib_call() public returns (uint256) {
+        return LibExample.pow(1, 2);
+    }
+
+    function func7() public returns (uint256) {
+        uint256 sum = 0;
+        uint256 loop_key = 0;
+        for(uint256 i = 0; i < 100; i++) {
+            // sum -= pure_func() + i;
+            // sum *= func_arg(i);
+            // sum += func_with_lib_call();
+
+            loop_key = i;
+            sum *= func_arg(loop_key);
+        }
+
+        return sum;
+    }
+    
 }

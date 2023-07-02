@@ -677,12 +677,24 @@ class SymbolicExecutionEngine:
             elif self.is_numeric(token):
                 result_list.append(RealVal(token))
             else:
-                # PATTERN 4: Expensive operations (READ) in a loop
-                # check if a storage variable is being read in assignment
                 if instruction:
+                    # PATTERN 4: Expensive operations (READ) in a loop
+                    # check if a storage variable is being read in assignment
                     self.pattern_matcher.p4_expensive_operations_in_loop(
                         block, instruction, token, loop_scope, symbolic_table
                     )
+
+                    if self.is_function_call(token) and loop_scope:
+                        # PATTERN 5: Loop invariant operations
+                        # check if non loop dependant function is called
+                        self.pattern_matcher.p5_loop_invariant_operations(
+                            block,
+                            instruction,
+                            token,
+                            symbolic_table,
+                            self.cfg.contract.functions,
+                            loop_scope[-1],
+                        )
 
                 result_list.append(
                     symbolic_table.get_symbol_value(token)
@@ -755,3 +767,7 @@ class SymbolicExecutionEngine:
             return SymbolType.ARRAY
 
         return SymbolType.PRIMITIVE
+
+    def is_function_call(self, token):
+        pattern = r"^\w+\(.*\)$"
+        return bool(re.match(pattern, token))

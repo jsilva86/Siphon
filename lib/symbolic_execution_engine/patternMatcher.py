@@ -6,6 +6,7 @@ from slither.core.cfg.node import Node
 
 from lib.cfg_builder.block import Block
 from lib.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
+from slither.core.declarations import Function
 
 
 class PatternType(Enum):
@@ -137,6 +138,42 @@ class PatternMatcher:
                 )
             )
 
+    def p5_loop_invariant_operations(
+        self,
+        block: Block,
+        instruction: Node,
+        function_call,
+        symbolic_table: SymbolicTable,
+        functions: list["Function"],
+        loop_scope: int,
+    ):
+        """
+        PATTERN 5: Loop invariant conditions
+
+        If inside a loop, check if any function call
+        is dependant on the current scope
+        """
+
+        sanitized_function_name, func_args = self.extract_function_info(function_call)
+
+        function = self.get_function_by_name(sanitized_function_name, functions)
+
+        # strict check to avoid side-effects from nested function calls or state changes
+        if self.has_internal_calls(function) or not function.pure:
+            return
+
+        # no arguments, no internal calls and is pure
+        if not func_args:
+            print("PATTERN 5")
+
+        # get symbols in the current scope
+        loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope)
+
+        # if non of the func args are loop_bounded then it's a pattern
+        loop_bounded_names = [symbol.name for symbol in loop_bounded_symbols]
+        if all(arg not in loop_bounded_names for arg in func_args):
+            print("PATTERN 5", function_call)
+
     def p6_loop_invariant_condition(
         self,
         block: Block,
@@ -146,7 +183,7 @@ class PatternMatcher:
         loop_scope: list,
     ):
         """
-        PATTERN 4: Loop invariant condition
+        PATTERN 4: Loop invariant conditions
 
         If inside a loop, check if any of the variables
         is bounded to the current scope
@@ -163,9 +200,6 @@ class PatternMatcher:
             self.is_symbol_in_condition(condition, symbol)
             for symbol in loop_bounded_symbols
         ):
-            # print("-----PATTERN 6: Loop invariant condition-----")
-            # print("  condition -> ", condition)
-            # print("  current loop scope -> ", loop_scope[-1])
             self.add_pattern_candidate(
                 LoopInvariantConditionPattern(
                     block, instruction, condition, loop_scope[-1]
@@ -227,27 +261,40 @@ class PatternMatcher:
         parts = name.split(".")
         return parts[0], None
 
-    def condition_contains_loop_variable(
-        self, condition, symbolic_table: SymbolicTable, loop_scope: list
-    ):
-        if not loop_scope:
-            return False
-
-        # get symbols in the current scope
-        loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope[-1])
-
-        # check if any of the symbols is present in the condition
-        return any(
-            self.is_symbol_in_condition(condition, symbol)
-            for symbol in loop_bounded_symbols
-        )
-
     def is_symbol_in_condition(self, expr, symbol):
         if isinstance(expr, (ArithRef, BoolRef)):
             for arg in expr.children():
                 if self.is_symbol_in_condition(arg, symbol):
                     return True
         return expr == symbol.value
+
+    def extract_function_info(self, function_call):
+        pattern = r"(\w+)\((.*)\)"
+        if match := re.match(pattern, function_call):
+            function_name = match[1]
+            arguments = match[2].split(", ") if match[2] else []
+            return function_name, arguments
+
+        return None, []
+
+    def get_function_by_name(self, function_name: str, functions: list):
+        function = filter(lambda function: function.name == function_name, functions)
+
+        return next(function, None)
+
+    def has_internal_calls(self, function: Function):
+        return (
+            function.internal_calls
+            or function.solidity_calls
+            or function.low_level_calls
+            or function.high_level_calls
+            or function.library_calls
+            or function.external_calls_as_expressions
+        )
+
+    def are_func_args_loop_bounded(self, loop_bounded_symbols: list, func_args: list):
+        loop_bounded_names = [symbol.name for symbol in loop_bounded_symbols]
+        return all(arg not in loop_bounded_names for arg in func_args)
 
 
 class Pattern:
