@@ -296,7 +296,7 @@ class SymbolicExecutionEngine:
             loop_scope,
         )
 
-        symbolic_table.update_symbol(variable, new_sym_value)
+        symbolic_table.update_symbol(variable, new_sym_value, loop_scope)
 
     def evaluate_variable_declaration(
         self, instruction: Node, symbolic_table: SymbolicTable, loop_scope: list

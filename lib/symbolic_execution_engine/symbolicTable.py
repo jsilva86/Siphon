@@ -55,7 +55,7 @@ class SymbolicTable:
             symbol = Symbol(symbol_name, type, loop_scope)
             self._table.setdefault(loop_scope, []).append(symbol)
 
-    def update_symbol(self, symbol_name: str, value=None):
+    def update_symbol(self, symbol_name: str, value, loop_scope: list = None):
         """
         Update the value of a symbol in the dictionary with the given symbol name and scope.
 
@@ -68,6 +68,15 @@ class SymbolicTable:
 
         if symbol := self.get_symbol(symbol_name):
             symbol.value = value if value is not None else Int(symbol_name)
+
+            if loop_scope:
+                # assignment inside loop, update taint list
+                loop_bounded_symbols = self.get_symbols_by_scope(loop_scope[-1])
+
+                for loop_bounded_symbol in loop_bounded_symbols:
+                    if self.is_symbol_in_condition(value, loop_bounded_symbol):
+                        symbol._tainted_by.append(symbol)
+                        symbol.taint_scope = loop_scope[-1]
 
     def get_symbol(self, symbol_name: str) -> Symbol:
         # sourcery skip: remove-unnecessary-cast
@@ -121,6 +130,31 @@ class SymbolicTable:
         """
         return self._table.get(loop_scope, [])
 
+    def get_tainted_symbols_in_scope(self, taint_scope: int) -> List[Symbol]:
+        """
+        Retrieve symbols tainted in the specified scope from the Symbolic Table.
+
+        Args:
+            taint_scope: The scope to filter the symbols.
+
+        Returns:
+            List of tainted symbols.
+        """
+
+        tainted_symbols = []
+        for symbol_list in self._table.values():
+            tainted_symbols.extend(
+                symbol for symbol in symbol_list if symbol.taint_scope == taint_scope
+            )
+        return tainted_symbols
+
+    def is_symbol_in_condition(self, expr, symbol):
+        if isinstance(expr, (ArithRef, BoolRef)):
+            for arg in expr.children():
+                if self.is_symbol_in_condition(arg, symbol):
+                    return True
+        return expr == symbol.value
+
     @property
     def table(self) -> Dict:
         """Returns the Symbolic Table
@@ -132,7 +166,9 @@ class SymbolicTable:
 
 
 class Symbol:
-    def __init__(self, name: str, type: SymbolType, loop_scope: int = 0):
+    def __init__(
+        self, name: str, type: SymbolType, loop_scope: int = 0, taint_list: list = None
+    ):
         # the name of the symbol
         self._name: str = name
 
@@ -147,6 +183,12 @@ class Symbol:
 
         # Scope where Symbol was declared
         self._loop_scope: int = loop_scope
+
+        # Symbols that tainted the current value
+        self._tainted_by: list = taint_list if taint_list else []
+
+        # Scope where symbol was last tainted
+        self._taint_scope: int = loop_scope
 
     @property
     def name(self):
@@ -188,6 +230,14 @@ class Symbol:
         """
         return self._is_loop_bounded
 
+    @property
+    def taint_scope(self):
+        """
+        Returns:
+            The taint scope of the symbol
+        """
+        return self._taint_scope
+
     @value.setter
     def value(self, new_value):
         """
@@ -227,6 +277,16 @@ class Symbol:
             new_scope: The new scope of the symbol.
         """
         self._is_loop_bounded = is_loop_bounded
+
+    @taint_scope.setter
+    def taint_scope(self, taint_scope):
+        """
+        Setter for the taint scope of the symbol
+
+        Args:
+            new_scope: The new taint scope of the symbol.
+        """
+        self._taint_scope = taint_scope
 
     def is_primitive(self):
         return self.type is SymbolType.PRIMITIVE

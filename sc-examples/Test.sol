@@ -146,14 +146,21 @@ contract Test2 {
     function func5(address key, uint x) public returns (uint256) {
         uint256 sum;
         uint256 sum_bad;
+        uint256 outside_bad;
         for(uint256 i = 0; i < s_list.length; i++) {
             s_mapping[key] += i;
             sum += s_mapping[key];
 
+            // false positives
             uint256 loop_key = i;
             s_mapping_bad[i] += i;
             s_mapping_bad[loop_key] += i;
             sum_bad += s_mapping_bad[loop_key];
+
+            // false positives
+            outside_bad = i + x;
+            s_mapping_bad[outside_bad] += i;
+            sum_bad += s_mapping_bad[outside_bad];
         }
 
         return s_result;
@@ -169,7 +176,7 @@ contract Test2 {
             }
             if (s_list.length > min_length + i) {
                 sum -= i;
-            } 
+            }
         }
 
         return s_result;
@@ -187,7 +194,7 @@ contract Test2 {
         return LibExample.pow(1, 2);
     }
 
-    function func7() public returns (uint256) {
+    function func7(uint256 j) public returns (uint256) {
         uint256 sum = 0;
         uint256 loop_key = 0;
         for(uint256 i = 0; i < 100; i++) {
@@ -195,8 +202,13 @@ contract Test2 {
             // sum *= func_arg(i);
             // sum += func_with_lib_call();
 
-            loop_key = i;
+            // false positive
+            loop_key = i + j;
             sum *= func_arg(loop_key);
+
+            // false positive
+            uint256 key_in_loop = i * j;
+            sum *= func_arg(key_in_loop);
         }
 
         return sum;

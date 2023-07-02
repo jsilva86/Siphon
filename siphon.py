@@ -27,7 +27,7 @@ def get_cfg_by_function(slitherSingleton: SlitherSingleton):
         ]  # assume unique name
         for function in functions:
             function.add_modifier
-            if function.name == "func7":
+            if function.name == "func5":
                 cfg = CFG(contract, function)
                 cfg.build_cfg()
 

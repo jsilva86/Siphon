@@ -168,9 +168,12 @@ class PatternMatcher:
 
         # get symbols in the current scope
         loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope)
+        tainted_symbols = symbolic_table.get_tainted_symbols_in_scope(loop_scope)
 
-        # if non of the func args are loop_bounded then it's a pattern
-        loop_bounded_names = [symbol.name for symbol in loop_bounded_symbols]
+        # if non of the func args are loop_bounded or where tainted by one, then it's a pattern
+        loop_bounded_names = [
+            symbol.name for symbol in loop_bounded_symbols + tainted_symbols
+        ]
         if all(arg not in loop_bounded_names for arg in func_args):
             print("PATTERN 5", function_call)
 
@@ -183,19 +186,20 @@ class PatternMatcher:
         loop_scope: list,
     ):
         """
-        PATTERN 4: Loop invariant conditions
+        PATTERN 6: Loop invariant conditions
 
         If inside a loop, check if any of the variables
         is bounded to the current scope
         """
 
         if not loop_scope:
-            return False
+            return
 
         # get symbols in the current scope
         loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope[-1])
 
         # check if any of the symbols is present in the condition
+        # taint checking is not required since we are already analysing the expression
         if not any(
             self.is_symbol_in_condition(condition, symbol)
             for symbol in loop_bounded_symbols
@@ -236,8 +240,12 @@ class PatternMatcher:
                 return True
 
             if symbolic_indexable_part := symbolic_table.get_symbol(indexable_part):
-                # if the key was declared in the current scope, then it's a false positive
-                return symbolic_indexable_part.loop_scope != loop_scope[-1]
+                # if the key was declared or tainted in the current scope,
+                # if it was, then it's a false positive and should not be reported
+                return (
+                    symbolic_indexable_part.loop_scope != loop_scope[-1]
+                    and symbolic_indexable_part.taint_scope != loop_scope[-1]
+                )
 
             # most likely a constant value key
             return True
