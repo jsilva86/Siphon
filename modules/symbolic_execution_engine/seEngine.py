@@ -9,10 +9,10 @@ from slither.core.solidity_types.type import Type
 from slither.core.solidity_types.array_type import ArrayType
 from slither.core.solidity_types.mapping_type import MappingType
 
-from lib.cfg_builder.cfg import CFG
-from lib.cfg_builder.block import Block
-from lib.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
-from lib.symbolic_execution_engine.patternMatcher import PatternMatcher
+from modules.cfg_builder.cfg import CFG
+from modules.cfg_builder.block import Block
+from modules.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
+from modules.symbolic_execution_engine.patternMatcher import PatternMatcher
 
 
 class SymbolicExecutionEngine:
@@ -60,7 +60,7 @@ class SymbolicExecutionEngine:
 
                 symbolic_table.update_symbol(variable.name, symbolic_value)
 
-    def execute(self):
+    def find_patterns(self):
         """Entrypoint for the Symbolic execution
 
         Executes the CFG starting from the head
@@ -82,6 +82,10 @@ class SymbolicExecutionEngine:
         self.execute_block(self.cfg.head, symbolic_table, path_constraints, loop_scope)
 
         print(self.pattern_matcher)
+
+        # TODO: change to correct variable, once all false positives are handled
+        # return the found pattterns
+        return self.pattern_matcher._pattern_candidates
 
     def execute_block(
         self,

@@ -4,8 +4,8 @@ from enum import Enum
 
 from slither.core.cfg.node import Node
 
-from lib.cfg_builder.block import Block
-from lib.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
+from modules.cfg_builder.block import Block
+from modules.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
 from slither.core.declarations import Function
 
 
