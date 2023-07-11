@@ -83,7 +83,7 @@ class SymbolicExecutionEngine:
 
         print(self.pattern_matcher)
 
-        # TODO: change to correct variable, once all false positives are handled
+        # FIXME: change to correct variable, once all false positives are handled
         # return the found pattterns
         return self.pattern_matcher._pattern_candidates
 

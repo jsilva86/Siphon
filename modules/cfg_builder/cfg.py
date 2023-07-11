@@ -93,7 +93,7 @@ class CFG:
 
         print(self.export_cfg)
         if self.export_cfg:
-            self.cfg_to_dot(self.function.name, self.head)
+            cfg_to_dot(self.function.name, self.head)
 
     def build_cfg_recursive(
         self,
@@ -379,33 +379,35 @@ class CFG:
     def retrieve_user_defined_data_structures(self) -> list["StructureContract"]:
         return self.contract.structures
 
-    def cfg_to_dot(self, filename: str, starting_node: Block):
-        """
-            Export the function to a dot file. Useful for debugging.
-        Args:
-            filename (str)
-        """
-        with open(f'{filename}.dot', "w", encoding="utf8") as f:
-            f.write("digraph{\n")
-            self.cfg_to_dot_recursive(f, starting_node)
-            f.write("}\n")
 
-    def cfg_to_dot_recursive(self, file, block: Block):
-        if not block:
-            return
+def cfg_to_dot(filename: str, starting_node: Block):
+    """
+        Export the function to a dot file. Useful for debugging.
+    Args:
+        filename (str)
+    """
+    with open(f"{filename}.dot", "w", encoding="utf8") as f:
+        f.write("digraph{\n")
+        cfg_to_dot_recursive(f, starting_node)
+        f.write("}\n")
 
-        file.write(
-            f'{str(block.id)}[label="{block.id} {[str(instruction) for instruction in block.instructions]}"];\n'
-        )
 
-        if block.true_path:
-            # FIXME this causes double arrows
-            file.write(f'{block.id}->{block.true_path.id}[label="True"];\n')
+def cfg_to_dot_recursive(file, block: Block):
+    if not block:
+        return
 
-            if not block.true_path.printed:
-                block.true_path.printed = True
-                self.cfg_to_dot_recursive(file, block.true_path)
+    file.write(
+        f'{str(block.id)}[label="{block.id} {[str(instruction) for instruction in block.instructions]}"];\n'
+    )
 
-        if block.false_path:
-            file.write(f'{block.id}->{block.false_path.id}[label="False"];\n')
-            self.cfg_to_dot_recursive(file, block.false_path)
+    if block.true_path:
+        # FIXME this causes double arrows
+        file.write(f'{block.id}->{block.true_path.id}[label="True"];\n')
+
+        if not block.true_path.printed:
+            block.true_path.printed = True
+            cfg_to_dot_recursive(file, block.true_path)
+
+    if block.false_path:
+        file.write(f'{block.id}->{block.false_path.id}[label="False"];\n')
+        cfg_to_dot_recursive(file, block.false_path)
