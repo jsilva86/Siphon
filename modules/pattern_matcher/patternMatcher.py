@@ -30,12 +30,12 @@ class PatternMatcher:
         return self._solver
 
     def __str__(self):
-        output = "    *Pattern Candidates*   \n\n"
-        for pattern in self._pattern_candidates:
-            output += str(pattern)
-        output += "\n\n\n"
+        # output = "    *Pattern Candidates*   \n\n"
+        # for pattern in self._pattern_candidates:
+        #     output += str(pattern)
+        # output += "\n\n"
 
-        output = "    *Patterns*   \n\n"
+        output = "                *Patterns*               \n\n"
         for pattern in self._patterns:
             output += str(pattern)
         output += "\n"
@@ -49,6 +49,7 @@ class PatternMatcher:
         instruction: Node,
         condition,
         path_contraints: list,
+        skip_pattern=False,  # avoid adding patterns for false paths
     ):
         """
         PATTERN 1: Redundant code
@@ -64,20 +65,25 @@ class PatternMatcher:
 
         is_condition_sat = self.solver.check(check_constraint) == sat
 
-        if not is_condition_sat:
+        if not skip_pattern and not is_condition_sat:
             pattern = RedundantCodePattern(
                 block, instruction, condition, path_contraints
             )
             # debug
             self._pattern_candidates.append(pattern)
 
-            if not self.is_false_positive(block, instruction):
+            if not self.is_duplicate_pattern(block, instruction):
                 self._patterns.append(pattern)
 
         return is_condition_sat
 
     def p2_opaque_predicate(
-        self, block: Block, instruction: Node, condition, path_contraints: list
+        self,
+        block: Block,
+        instruction: Node,
+        condition,
+        path_contraints: list,
+        skip_pattern=False,  # avoid adding patterns for false paths
     ):
         """
         PATTERN 2: Opaque predicates
@@ -92,14 +98,14 @@ class PatternMatcher:
 
         solver_result = self.solver.check(Not(implication))
 
-        if solver_result == unsat:
+        if not skip_pattern and solver_result == unsat:
             pattern = OpaquePredicatePattern(
                 block, instruction, condition, path_contraints
             )
             # debug
             self._pattern_candidates.append(pattern)
 
-            if not self.is_false_positive(block, instruction):
+            if not self.is_duplicate_pattern(block, instruction):
                 self._patterns.append(pattern)
 
     def p4_expensive_operations_in_loop(
@@ -229,10 +235,32 @@ class PatternMatcher:
             # debug
             self._pattern_candidates.append(pattern)
 
-            if not self.is_false_positive(block, instruction):
+            if not self.is_duplicate_pattern(block, instruction):
                 self._patterns.append(pattern)
 
-    def is_false_positive(self, block: Block, instruction: Node):
+    def remove_false_positives(self):
+        """
+        Some False Positives are only detectable after the analysis is done
+
+        Such is the case for P1: a branch is only "really" unreachable,
+        if no path is able to reach it
+        """
+
+        # TODO extend this function to other patterns if needed
+
+        # if a block is reachable via at least one path, then it's a false positive P1
+        self._patterns = list(
+            filter(
+                lambda pattern: pattern.pattern_type != PatternType.REDUNDANT_CODE
+                or (
+                    pattern.pattern_type == PatternType.REDUNDANT_CODE
+                    and not any(pattern.block._reachability)
+                ),
+                self._patterns,
+            )
+        )
+
+    def is_duplicate_pattern(self, block: Block, instruction: Node):
         """
         Check if the instruction/block already has a P1/P2
 

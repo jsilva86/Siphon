@@ -30,6 +30,9 @@ class Block:
         # TODO is this good enough?
         self._id: int = randint(0, 10000)
 
+        # reachability via paths, used to remove P1 false positives
+        self._reachability: list[int] = []
+
         # debug purposes
         self._printed: bool = False
 

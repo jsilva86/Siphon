@@ -93,7 +93,8 @@ contract Test2 {
                 result = 3;
             }
         } else {
-            result = 50;
+            result = 50; // detect false positive P1
+            //result = 100; 
         }
 
         // This code block is unreachable
@@ -122,7 +123,9 @@ contract Test2 {
     function func3(uint256 x) public returns (uint256) {
         uint256 result;
         if (s_result < 100) {
-           result = 3;
+           if (s_result < 200) {
+            result = 3;
+           }
         }
 
         return result;

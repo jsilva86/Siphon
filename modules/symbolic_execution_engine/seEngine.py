@@ -81,11 +81,13 @@ class SymbolicExecutionEngine:
         # start executing from the initial block
         self.execute_block(self.cfg.head, symbolic_table, path_constraints, loop_scope)
 
+        # check for false positives
+        self.pattern_matcher.remove_false_positives()
+
         print(self.pattern_matcher)
 
-        # FIXME: change to correct variable, once all false positives are handled
         # return the found pattterns
-        return self.pattern_matcher._pattern_candidates
+        return self.pattern_matcher._patterns
 
     def execute_block(
         self,
@@ -143,6 +145,9 @@ class SymbolicExecutionEngine:
         # fork both paths
         new_symbolic_table = deepcopy(symbolic_table)
         new_loop_scope = deepcopy(loop_scope)
+
+        # store reachability information
+        block._reachability.append(should_traverse_true_path)
 
         if should_traverse_true_path:
             new_path_constraints = deepcopy(path_contraints)
@@ -225,7 +230,7 @@ class SymbolicExecutionEngine:
             block, instruction, if_operation, path_contraints
         )
         is_false_path_sat = self.pattern_matcher.p1_redundant_code(
-            block, instruction, if_not_operation, path_contraints
+            block, instruction, if_not_operation, path_contraints, True,
         )
 
         # PATTERN 2: Opaque predicates
@@ -233,7 +238,7 @@ class SymbolicExecutionEngine:
             block, instruction, if_operation, path_contraints
         )
         self.pattern_matcher.p2_opaque_predicate(
-            block, instruction, if_not_operation, path_contraints
+            block, instruction, if_not_operation, path_contraints, True
         )
 
         # PATTERN 6: Loop invariant conditions
