@@ -91,7 +91,6 @@ class CFG:
                 self.build_cfg_recursive(node, self._head)
                 break
 
-        print(self.export_cfg)
         if self.export_cfg:
             cfg_to_dot(self.function.name, self.head)
 

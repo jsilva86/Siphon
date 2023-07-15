@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List
 from z3 import *
 import re
 from copy import deepcopy
@@ -12,7 +12,7 @@ from slither.core.solidity_types.mapping_type import MappingType
 from modules.cfg_builder.cfg import CFG
 from modules.cfg_builder.block import Block
 from modules.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
-from modules.symbolic_execution_engine.patternMatcher import PatternMatcher
+from modules.pattern_matcher.patternMatcher import PatternMatcher
 
 
 class SymbolicExecutionEngine:
@@ -697,7 +697,7 @@ class SymbolicExecutionEngine:
                             token,
                             symbolic_table,
                             self.cfg.contract.functions,
-                            loop_scope[-1],
+                            loop_scope,
                         )
 
                 result_list.append(

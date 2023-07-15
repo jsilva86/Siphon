@@ -93,7 +93,7 @@ contract Test2 {
                 result = 3;
             }
         } else {
-            result = 200;
+            result = 50;
         }
 
         // This code block is unreachable
@@ -198,9 +198,9 @@ contract Test2 {
         uint256 sum = 0;
         uint256 loop_key = 0;
         for(uint256 i = 0; i < 100; i++) {
-            // sum -= pure_func() + i;
-            // sum *= func_arg(i);
-            // sum += func_with_lib_call();
+            sum -= pure_func() + i;
+            sum *= func_arg(i);
+            sum += func_with_lib_call();
 
             // false positive
             loop_key = i + j;

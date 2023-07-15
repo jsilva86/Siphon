@@ -1,19 +1,12 @@
 import re
 from z3 import *
-from enum import Enum
 
 from slither.core.cfg.node import Node
+from slither.core.declarations import Function
 
 from modules.cfg_builder.block import Block
 from modules.symbolic_execution_engine.symbolicTable import SymbolicTable, SymbolType
-from slither.core.declarations import Function
-
-
-class PatternType(Enum):
-    REDUNDANT_CODE = 1
-    OPAQUE_PREDICATE = 2
-    EXPENSIVE_OPERATION_IN_LOOP = 4
-    LOOP_INVARIANT_CONDITION = 6
+from modules.pattern_matcher.patterns import *
 
 
 class PatternMatcher:
@@ -21,11 +14,11 @@ class PatternMatcher:
         # Z3 solver
         self._solver: Solver = Solver()
 
-        # pattern candidates
-        self._pattern_candidates: dict[int, list[Pattern]] = {}
+        # pattern candidates. Debug purposes
+        self._pattern_candidates: list[Pattern] = []
 
         # pattern candidates
-        self._patterns: list[Pattern] = {}
+        self._patterns: list[Pattern] = []
 
     @property
     def solver(self) -> Solver:
@@ -38,29 +31,15 @@ class PatternMatcher:
 
     def __str__(self):
         output = "    *Pattern Candidates*   \n\n"
-        for _, patterns in self._pattern_candidates.items():
-            for pattern in patterns:
-                output += str(pattern)
-            output += "\n"
+        for pattern in self._pattern_candidates:
+            output += str(pattern)
+        output += "\n\n\n"
+
+        output = "    *Patterns*   \n\n"
+        for pattern in self._patterns:
+            output += str(pattern)
+        output += "\n"
         return output
-
-    def add_pattern_candidate(self, pattern):
-        instruction = pattern.instruction
-        pattern_type = pattern.pattern_type
-
-        # TODO not this simple for the other patterns
-        # same instruction can have multiple storage variables
-        if pattern_type in [
-            PatternType.REDUNDANT_CODE,
-            PatternType.OPAQUE_PREDICATE,
-        ]:
-            if instruction.node_id in self._pattern_candidates:
-                existing_patterns = self._pattern_candidates[instruction.node_id]
-                for existing_pattern in existing_patterns:
-                    if existing_pattern.pattern_type == pattern_type:
-                        return  # Pattern already exists, do not add again
-
-        self._pattern_candidates.setdefault(instruction.node_id, []).append(pattern)
 
     # PATTERN 1: Redundant code
     # check if a branch is unsatisfiable (UNSAT)
@@ -86,9 +65,14 @@ class PatternMatcher:
         is_condition_sat = self.solver.check(check_constraint) == sat
 
         if not is_condition_sat:
-            self.add_pattern_candidate(
-                RedundantCodePattern(block, instruction, condition, path_contraints)
+            pattern = RedundantCodePattern(
+                block, instruction, condition, path_contraints
             )
+            # debug
+            self._pattern_candidates.append(pattern)
+
+            if not self.is_false_positive(block, instruction):
+                self._patterns.append(pattern)
 
         return is_condition_sat
 
@@ -109,9 +93,14 @@ class PatternMatcher:
         solver_result = self.solver.check(Not(implication))
 
         if solver_result == unsat:
-            self.add_pattern_candidate(
-                OpaquePredicatePattern(block, instruction, condition, path_contraints)
+            pattern = OpaquePredicatePattern(
+                block, instruction, condition, path_contraints
             )
+            # debug
+            self._pattern_candidates.append(pattern)
+
+            if not self.is_false_positive(block, instruction):
+                self._patterns.append(pattern)
 
     def p4_expensive_operations_in_loop(
         self,
@@ -132,11 +121,23 @@ class PatternMatcher:
             )
             and loop_scope
         ):
-            self.add_pattern_candidate(
-                ExpensiveOperationInLoopPattern(
-                    block, instruction, variable_name, loop_scope[-1]
-                )
+            existing_pattern = self.get_pattern_by_instruction_and_type(
+                instruction, PatternType.EXPENSIVE_OPERATION_IN_LOOP
             )
+
+            pattern = ExpensiveOperationInLoopPattern(
+                block, instruction, variable_name, loop_scope[-1]
+            )
+
+            if not existing_pattern:
+                self._patterns.append(pattern)
+
+            # ensure that each variable is only flagged once per instruction
+            elif variable_name not in existing_pattern.variables:
+                existing_pattern.variables.append(variable_name)
+
+            # debug
+            self._pattern_candidates.append(pattern)
 
     def p5_loop_invariant_operations(
         self,
@@ -145,7 +146,7 @@ class PatternMatcher:
         function_call,
         symbolic_table: SymbolicTable,
         functions: list["Function"],
-        loop_scope: int,
+        loop_scope: list,
     ):
         """
         PATTERN 5: Loop invariant conditions
@@ -162,20 +163,38 @@ class PatternMatcher:
         if self.has_internal_calls(function) or not function.pure:
             return
 
-        # no arguments, no internal calls and is pure
-        if not func_args:
-            print("PATTERN 5")
-
         # get symbols in the current scope
-        loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope)
-        tainted_symbols = symbolic_table.get_tainted_symbols_in_scope(loop_scope)
+        loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope[-1])
+        tainted_symbols = symbolic_table.get_tainted_symbols_in_scope(loop_scope[-1])
 
-        # if non of the func args are loop_bounded or where tainted by one, then it's a pattern
+        # if none of the func args are loop_bounded or where tainted by one, then it's a pattern
         loop_bounded_names = [
             symbol.name for symbol in loop_bounded_symbols + tainted_symbols
         ]
-        if all(arg not in loop_bounded_names for arg in func_args):
-            print("PATTERN 5", function_call)
+
+        # no arguments, no internal calls and function is pure
+        # OR
+        # none of the func args are loop_bounded or where tainted by one
+        if not func_args or all(arg not in loop_bounded_names for arg in func_args):
+            existing_pattern = self.get_pattern_by_instruction_and_type(
+                instruction, PatternType.LOOP_INVARIANT_CONDITION
+            )
+
+            pattern = LoopInvariantOperationPattern(
+                block, instruction, function, loop_scope[-1]
+            )
+
+            if not existing_pattern:
+                self._patterns.append(pattern)
+
+            # ensure that each function is only flagged once per instruction
+            elif sanitized_function_name not in [
+                function.name for function in existing_pattern.functions
+            ]:
+                existing_pattern.functions.append(function)
+
+            # debug
+            self._pattern_candidates.append(pattern)
 
     def p6_loop_invariant_condition(
         self,
@@ -204,11 +223,49 @@ class PatternMatcher:
             self.is_symbol_in_condition(condition, symbol)
             for symbol in loop_bounded_symbols
         ):
-            self.add_pattern_candidate(
-                LoopInvariantConditionPattern(
-                    block, instruction, condition, loop_scope[-1]
-                )
+            pattern = LoopInvariantConditionPattern(
+                block, instruction, condition, loop_scope[-1]
             )
+            # debug
+            self._pattern_candidates.append(pattern)
+
+            if not self.is_false_positive(block, instruction):
+                self._patterns.append(pattern)
+
+    def is_false_positive(self, block: Block, instruction: Node):
+        """
+        Check if the instruction/block already has a P1/P2
+
+        If an IF block is a P1, then the ELSE block is always a P2
+
+        Avoid flagging P6 multiple times
+        """
+
+        for pattern in self._patterns:
+            # this works because each block can only have a P1 or P2
+            if (
+                pattern.instruction.node_id == instruction.node_id
+                or pattern.block.id == block.id
+            ):
+                if pattern.pattern_type in [
+                    PatternType.REDUNDANT_CODE,
+                    PatternType.OPAQUE_PREDICATE,
+                    PatternType.LOOP_INVARIANT_CONDITION,
+                ]:
+                    return True
+        return False
+
+    def get_pattern_by_instruction_and_type(
+        self, instruction: Node, pattern_type: PatternType
+    ):
+        filtered_patterns = filter(
+            lambda pattern: pattern.instruction.node_id == instruction.node_id
+            and pattern.pattern_type == pattern_type,
+            self._patterns,
+        )
+        return next(
+            filtered_patterns, None
+        )  # Return the first matching pattern or None if not found
 
     def is_storage_variable_accessed(
         self,
@@ -285,7 +342,7 @@ class PatternMatcher:
 
         return None, []
 
-    def get_function_by_name(self, function_name: str, functions: list):
+    def get_function_by_name(self, function_name: str, functions: list) -> Function:
         function = filter(lambda function: function.name == function_name, functions)
 
         return next(function, None)
@@ -303,113 +360,3 @@ class PatternMatcher:
     def are_func_args_loop_bounded(self, loop_bounded_symbols: list, func_args: list):
         loop_bounded_names = [symbol.name for symbol in loop_bounded_symbols]
         return all(arg not in loop_bounded_names for arg in func_args)
-
-
-class Pattern:
-    def __init__(self, block, instruction, pattern_type):
-        self._block = block
-        self._instruction = instruction
-        self._pattern_type = pattern_type
-
-    @property
-    def block(self):
-        return self._block
-
-    @property
-    def instruction(self):
-        return self._instruction
-
-    @property
-    def pattern_type(self):
-        return self._pattern_type
-
-    def __str__(self):
-        return f"Block: {self.block.id}\nInstruction: {self.instruction}\n"
-
-
-class RedundantCodePattern(Pattern):
-    def __init__(self, block, instruction, condition, path_constraints):
-        super().__init__(block, instruction, PatternType.REDUNDANT_CODE)
-        self._condition = condition
-        self._path_constraints = path_constraints
-
-    @property
-    def condition(self):
-        return self._condition
-
-    @property
-    def path_constraints(self):
-        return self._path_constraints
-
-    def __str__(self):
-        output = f"-----PATTERN 1: {self.pattern_type.name}-----\n"
-        output += super().__str__()
-        output += f"Condition: {self.condition}\n"
-        output += f"Path Constraints: {self.path_constraints}\n"
-        return output
-
-
-class OpaquePredicatePattern(Pattern):
-    def __init__(self, block, instruction, condition, path_constraints):
-        super().__init__(block, instruction, PatternType.OPAQUE_PREDICATE)
-        self._condition = condition
-        self._path_constraints = path_constraints
-
-    @property
-    def condition(self):
-        return self._condition
-
-    @property
-    def path_constraints(self):
-        return self._path_constraints
-
-    def __str__(self):
-        output = f"-----PATTERN 2: {self.pattern_type.name}-----\n"
-        output += super().__str__()
-        output += f"Condition: {self.condition}\n"
-        output += f"Path Constraints: {self.path_constraints}\n"
-        return output
-
-
-class ExpensiveOperationInLoopPattern(Pattern):
-    def __init__(self, block, instruction, variable, current_scope):
-        super().__init__(block, instruction, PatternType.EXPENSIVE_OPERATION_IN_LOOP)
-        self._variable = variable
-        self._current_scope = current_scope
-
-    @property
-    def variable(self):
-        return self._variable
-
-    @property
-    def current_scope(self):
-        return self._current_scope
-
-    def __str__(self):
-        output = f"-----PATTERN 4: {self.pattern_type.name}-----\n"
-        output += super().__str__()
-        output += f"Variable: {self.variable}\n"
-        output += f"Current Scope: {self.current_scope}\n"
-        return output
-
-
-class LoopInvariantConditionPattern(Pattern):
-    def __init__(self, block, instruction, condition, current_scope):
-        super().__init__(block, instruction, PatternType.LOOP_INVARIANT_CONDITION)
-        self._condition = condition
-        self._current_scope = current_scope
-
-    @property
-    def condition(self):
-        return self._condition
-
-    @property
-    def current_scope(self):
-        return self._current_scope
-
-    def __str__(self):
-        output = f"-----PATTERN 6: {self.pattern_type.name}-----\n"
-        output += super().__str__()
-        output += f"Condition: {self.condition}\n"
-        output += f"Current Scope: {self.current_scope}\n"
-        return output
