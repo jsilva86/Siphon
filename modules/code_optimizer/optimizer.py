@@ -102,21 +102,24 @@ class Optimizer:
             pattern.block.true_path = None
 
     def handle_opaque_predicate(self, pattern: OpaquePredicatePattern):
-        print("opaque predicate")
-        pass
+        # last instruction is the IF condition
+        # no need to have since it's always true
+        pattern.block._instructions.pop()
+
+        # since it's a tautology the nagation will never be executed
+        # remove the branch if it exists
+        if pattern.block.false_path:
+            pattern.block.false_path = None
 
     def handle_expensive_operation_in_loop(
         self, pattern: ExpensiveOperationInLoopPattern
     ):
-        print("expensive operation in loop")
         pass
 
     def handle_loop_invariant_operation(self, pattern: LoopInvariantOperationPattern):
-        print("loop invariant operation")
         pass
 
     def handle_loop_invariant_condition(self, pattern: LoopInvariantConditionPattern):
-        print("loop invariant condition")
         pass
 
 

@@ -135,6 +135,11 @@ contract Test2 {
            if (s_result < 200) {
             result = 3;
            }
+           else {
+            result = 5;
+           }
+
+           result *= 100;
         }
 
         return result;
