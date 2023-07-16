@@ -5,6 +5,7 @@ from slither.core.declarations import Function, Contract
 from modules.slither.slitherSingleton import slitherSingleton
 from modules.cfg_builder.cfg import CFG
 from modules.symbolic_execution_engine.seEngine import SymbolicExecutionEngine
+from modules.code_optimizer.optimizer import optimizerSingleton
 
 
 def main() -> None:
@@ -25,9 +26,17 @@ def main() -> None:
         args.export_cfgs,
     )
 
+    # Wrapper around Slither
     slitherSingleton.init_slither_instance(filename)
 
-    analyse(contract_name, function_name, export_cfgs)
+    # Build CFG and find patterns
+    cfg, patterns = analyse(contract_name, function_name, export_cfgs)
+
+    # Optimizer
+    optimizerSingleton.init_instance(function_name, cfg, patterns, export_cfgs)
+
+    # Generate the optimized CFG
+    optimized_cfg = optimizerSingleton.generate_optimized_cfg()
 
 
 def analyse(contract_name=None, function_name=None, export_cfgs=False):
@@ -39,19 +48,21 @@ def analyse(contract_name=None, function_name=None, export_cfgs=False):
         ) in slitherSingleton.get_functions_by_contract().items():
             contract = slitherSingleton.get_contract_by_name(contract_name)
             for function in functions:
-                patterns = analyse_function(contract, function, export_cfgs)
+                cfg, patterns = analyse_function(contract, function, export_cfgs)
 
     # If contract_name is provided, but function_name is not, execute for all functions inside contract
     elif function_name is None:
         for function in slitherSingleton.get_all_functions_in_contract(contract_name):
-            patterns = analyse_function(contract, function, export_cfgs)
+            cfg, patterns = analyse_function(contract, function, export_cfgs)
 
     else:
         # If both contract_name and function_name are provided, execute for the specific function in the contract
         contract = slitherSingleton.get_contract_by_name(contract_name)
         function = slitherSingleton.get_function_by_name(contract_name, function_name)
 
-        patterns = analyse_function(contract, function, export_cfgs)
+        cfg, patterns = analyse_function(contract, function, export_cfgs)
+
+    return cfg, patterns
 
 
 def analyse_function(contract: Contract, function: Function, export_cfgs=False):
@@ -63,7 +74,7 @@ def analyse_function(contract: Contract, function: Function, export_cfgs=False):
     se_engine = SymbolicExecutionEngine(cfg)
 
     # retrieve the found patterns
-    return se_engine.find_patterns()
+    return cfg, se_engine.find_patterns()
 
 
 if __name__ == "__main__":

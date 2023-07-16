@@ -92,15 +92,23 @@ contract Test2 {
             if(x < 25) {
                 result = 3;
             }
+            // else if (x < 30) {
+            //     result = 5;
+            // }
+            // else{
+            //     result = 9;
+            // }
         } else {
             result = 50; // detect false positive P1
-            //result = 100; 
+            result = 100; 
         }
 
         // This code block is unreachable
         if (result < 100) {
             result = 100;
         }
+
+        return result;
     }
 
     function func2(uint256 x) public returns (uint256) {

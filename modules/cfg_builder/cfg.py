@@ -1,3 +1,5 @@
+import os
+
 from typing import Dict
 
 from slither.core.declarations import Function, Contract
@@ -385,7 +387,15 @@ def cfg_to_dot(filename: str, starting_node: Block):
     Args:
         filename (str)
     """
-    with open(f"{filename}.dot", "w", encoding="utf8") as f:
+
+    # Create the directory if it doesn't exist
+    if not os.path.exists("cfgs"):
+        os.makedirs("cfgs")
+
+    # Create the file path
+    file_path = os.path.join("cfgs", filename)
+
+    with open(f"{file_path}.dot", "w", encoding="utf8") as f:
         f.write("digraph{\n")
         cfg_to_dot_recursive(f, starting_node)
         f.write("}\n")
@@ -404,7 +414,8 @@ def cfg_to_dot_recursive(file, block: Block):
         file.write(f'{block.id}->{block.true_path.id}[label="True"];\n')
 
         if not block.true_path.printed:
-            block.true_path.printed = True
+            # TODO doesnt work with the optimized CFG
+            # block.true_path.printed = True
             cfg_to_dot_recursive(file, block.true_path)
 
     if block.false_path:
