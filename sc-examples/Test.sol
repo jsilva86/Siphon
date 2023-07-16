@@ -92,18 +92,19 @@ contract Test2 {
             if(x < 25) {
                 result = 3;
             }
-            // else if (x < 30) {
-            //     result = 5;
-            // }
-            // else{
-            //     result = 9;
-            // }
+            else if (x < 60) {
+                result = 5;
+            }
+            else {
+                result = 900;
+                result = 9; // test P1 with P2, 
+            }
         } else {
             result = 50; // detect false positive P1
-            result = 100; 
+            //result = 100; 
         }
 
-        // This code block is unreachable
+        // This code block is unreachable ( and also opaque )
         if (result < 100) {
             result = 100;
         }

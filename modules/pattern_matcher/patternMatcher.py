@@ -242,19 +242,29 @@ class PatternMatcher:
         """
         Some False Positives are only detectable after the analysis is done
 
-        Such is the case for P1: a branch is only "really" unreachable,
-        if no path is able to reach it
+        Such is the case for P1/P2: a branch is only "really" unreachable,
+        if no path is able to reach it OR is "always" reachable if all branches reach it
+
+
         """
 
         # TODO extend this function to other patterns if needed
 
         # if a block is reachable via at least one path, then it's a false positive P1
+        # if a block is NOT reachable via at least one path, then it's a false positive P2
         self._patterns = list(
             filter(
-                lambda pattern: pattern.pattern_type != PatternType.REDUNDANT_CODE
+                lambda pattern: (
+                    pattern.pattern_type != PatternType.REDUNDANT_CODE
+                    and pattern.pattern_type != PatternType.OPAQUE_PREDICATE
+                )
                 or (
                     pattern.pattern_type == PatternType.REDUNDANT_CODE
                     and not any(pattern.block._reachability)
+                )
+                or (
+                    pattern.pattern_type == PatternType.OPAQUE_PREDICATE
+                    and all(pattern.block._reachability)
                 ),
                 self._patterns,
             )
