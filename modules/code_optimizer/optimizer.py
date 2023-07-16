@@ -83,11 +83,10 @@ class Optimizer:
                 case PatternType.LOOP_INVARIANT_CONDITION:
                     self.handle_loop_invariant_condition(pattern)
 
-        # return the optimized CFG
-
         if self.export_cfg:
             cfg_to_dot(f"{self.function_name}-optimized", self.cfg.head)
 
+        # return the optimized CFG
         return None
 
     def handle_redundant_code(self, pattern: RedundantCodePattern):
@@ -114,6 +113,13 @@ class Optimizer:
     def handle_expensive_operation_in_loop(
         self, pattern: ExpensiveOperationInLoopPattern
     ):
+        # get the block scope where the access is being made
+        block_of_scope = self.get_block_of_scope(pattern)
+
+        print("scope block", block_of_scope.id, block_of_scope)
+
+        # TODO: add modified instruction before BEGIN_LOOP
+        # TODO: modify current instruction
         pass
 
     def handle_loop_invariant_operation(self, pattern: LoopInvariantOperationPattern):
@@ -121,6 +127,19 @@ class Optimizer:
 
     def handle_loop_invariant_condition(self, pattern: LoopInvariantConditionPattern):
         pass
+
+    def get_block_of_scope(self, pattern: ExpensiveOperationInLoopPattern):
+        """
+        Given a block scope, stored in the pattern,
+        traverse upwards in the CFG until the corresponding Block is found and return it
+        """
+
+        # when the current block has the id of the current scope return it
+        current_block = pattern.block
+        while current_block.id != pattern.current_scope:
+            current_block = current_block.prev_block
+
+        return current_block
 
 
 # export the singleton

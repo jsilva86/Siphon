@@ -33,9 +33,6 @@ class Block:
         # reachability via paths, used to remove P1 false positives
         self._reachability: list[int] = []
 
-        # debug purposes
-        self._printed: bool = False
-
     def __str__(self):
         return "\n".join(
             map(repr, [str(instruction) for instruction in self.instructions])
@@ -87,15 +84,6 @@ class Block:
         return self._id
 
     @property
-    def printed(self) -> int:
-        """Returns if the block was already printed
-
-        Returns:
-            printed: Printed
-        """
-        return self._printed
-
-    @property
     def state_variables_written(self) -> Dict[str, int]:
         """
         dict(StateVariable): State variables written
@@ -127,10 +115,6 @@ class Block:
     @prev_block.setter
     def prev_block(self, value):
         self._prev_block = value
-
-    @printed.setter
-    def printed(self, value):
-        self._printed = value
 
     @id.setter
     def id(self, value):

@@ -397,11 +397,11 @@ def cfg_to_dot(filename: str, starting_node: Block):
 
     with open(f"{file_path}.dot", "w", encoding="utf8") as f:
         f.write("digraph{\n")
-        cfg_to_dot_recursive(f, starting_node)
+        cfg_to_dot_recursive(f, starting_node, [])
         f.write("}\n")
 
 
-def cfg_to_dot_recursive(file, block: Block):
+def cfg_to_dot_recursive(file, block: Block, visited_list):
     if not block:
         return
 
@@ -413,11 +413,10 @@ def cfg_to_dot_recursive(file, block: Block):
         # FIXME this causes double arrows
         file.write(f'{block.id}->{block.true_path.id}[label="True"];\n')
 
-        if not block.true_path.printed:
-            # TODO doesnt work with the optimized CFG
-            # block.true_path.printed = True
-            cfg_to_dot_recursive(file, block.true_path)
+        if not block.true_path.id in visited_list:
+            visited_list.append(block.true_path.id)
+            cfg_to_dot_recursive(file, block.true_path, visited_list)
 
     if block.false_path:
         file.write(f'{block.id}->{block.false_path.id}[label="False"];\n')
-        cfg_to_dot_recursive(file, block.false_path)
+        cfg_to_dot_recursive(file, block.false_path, visited_list)
