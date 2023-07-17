@@ -1,8 +1,10 @@
-from typing import List, Dict
+from typing import List, Dict, Union
 from random import randint
 
 from slither.core.cfg.node import Node
 from slither.core.variables.state_variable import StateVariable
+
+from modules.code_optimizer.siphonNode import SiphonNode
 
 
 class Block:
@@ -13,7 +15,7 @@ class Block:
 
     def __init__(self):
         # instructions inside the block
-        self._instructions: List["Node"] = []
+        self._instructions: List[Union["Node", "SiphonNode"]] = []
 
         # storage accesses
         self._state_variables_written: Dict[str, int] = {}
@@ -30,7 +32,7 @@ class Block:
         # TODO is this good enough?
         self._id: int = randint(0, 10000)
 
-        # reachability via paths, used to remove P1 false positives
+        # reachability via paths, used to remove P1/P2 false positives
         self._reachability: list[int] = []
 
     def __str__(self):

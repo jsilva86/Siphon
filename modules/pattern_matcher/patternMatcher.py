@@ -131,8 +131,15 @@ class PatternMatcher:
                 instruction, PatternType.EXPENSIVE_OPERATION_IN_LOOP
             )
 
+            # FIXME: discard indexable part?
+            sanitized_variable_name, _ = self.sanitize_variable_name(variable_name)
+
             pattern = ExpensiveOperationInLoopPattern(
-                block, instruction, variable_name, loop_scope[-1]
+                block,
+                instruction,
+                variable_name,
+                sanitized_variable_name,
+                loop_scope[-1],
             )
 
             if not existing_pattern:
@@ -141,6 +148,7 @@ class PatternMatcher:
             # ensure that each variable is only flagged once per instruction
             elif variable_name not in existing_pattern.variables:
                 existing_pattern.variables.append(variable_name)
+                existing_pattern.sanitized_variables.append(sanitized_variable_name)
 
             # debug
             self._pattern_candidates.append(pattern)

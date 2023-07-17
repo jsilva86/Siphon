@@ -116,7 +116,30 @@ class Optimizer:
         # get the block scope where the access is being made
         block_of_scope = self.get_block_of_scope(pattern)
 
-        print("scope block", block_of_scope.id, block_of_scope)
+        # print("scope block", block_of_scope.id, block_of_scope)
+
+        # print(
+        #     block_of_scope,
+        #     block_of_scope.instructions[1],
+        #     block_of_scope.instructions[1].source_mapping,
+        #     block_of_scope.instructions[1].source_mapping.lines,
+        #     block_of_scope.instructions[
+        #         0
+        #     ].source_mapping.compilation_unit.crytic_compile.get_code_from_line(
+        #         "sc-examples/Test.sol",
+        #         block_of_scope.instructions[1].source_mapping.lines[0],
+        #     ),
+        # )
+
+        variable_name = pattern.variables[0]
+        s_variable_name = pattern.sanitized_variables[0]
+
+        print(variable_name)
+
+        # search for the Storage variable via its sanitized name (structs/lists)
+        variable = self._cfg.contract.variables_as_dict.get(s_variable_name)
+
+        print(variable, variable.type)
 
         # TODO: add modified instruction before BEGIN_LOOP
         # TODO: modify current instruction

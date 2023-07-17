@@ -18,6 +18,7 @@ class CFG:
     """
 
     def __init__(self, contract: Contract, function: Function, export_cfg=False):
+        # pass along to other modules
         self._contract: Contract = contract
         self._function: Function = function
 

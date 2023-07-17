@@ -76,14 +76,23 @@ class OpaquePredicatePattern(Pattern):
 
 
 class ExpensiveOperationInLoopPattern(Pattern):
-    def __init__(self, block, instruction, variable, current_scope):
+    def __init__(
+        self, block, instruction, variable, sanitized_variable_name, current_scope
+    ):
         super().__init__(block, instruction, PatternType.EXPENSIVE_OPERATION_IN_LOOP)
+        # always have a 1-1 match in terms of members
         self._variables = [variable]
+        self._sanitized_variables = [sanitized_variable_name]
+
         self._current_scope = current_scope
 
     @property
     def variables(self):
         return self._variables
+
+    @property
+    def sanitized_variables(self):
+        return self._sanitized_variables
 
     @property
     def current_scope(self):
@@ -93,6 +102,7 @@ class ExpensiveOperationInLoopPattern(Pattern):
         output = f"-----PATTERN 4: {self.pattern_type.name}-----\n"
         output += super().__str__()
         output += f"Variables: {self.variables}\n"
+        output += f"Sanitized Variables: {self.sanitized_variables}\n"
         output += f"Current Scope: {self.current_scope}\n"
         return output
 
