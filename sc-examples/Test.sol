@@ -147,18 +147,19 @@ contract Test2 {
 
     function func4(uint256 x) public returns (uint256) {
         for(uint256 i = 0; i < 100; i++) {
+            x += s_variable * i;
             for(uint256 j = 0; j < 100; j++) {
                 if (s_result + 1  + j < s_condition) {
-                    x += s_variable * i;
                     s_variable *= i * j;
                 }
-
                 x = 9999;
             }
+
+            x = 123;
         }
     
         return s_result;
-    }  
+    }    
 
     function func5(address key, uint x) public returns (uint256) {
         uint256 sum;

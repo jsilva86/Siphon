@@ -326,7 +326,7 @@ class PatternMatcher:
         )
 
         # top-level shallow check for mappings and lists
-        # this first condition only asserts that the mapping or list was accessed, but the specific element
+        # this first condition only asserts that the mapping or list was accessed, not the specific element
         if any(
             s_variable.name == sanitized_variable_name
             for s_variable in instruction.state_variables_written
@@ -344,7 +344,7 @@ class PatternMatcher:
 
             if symbolic_indexable_part := symbolic_table.get_symbol(indexable_part):
                 # if the key was declared or tainted in the current scope,
-                # if it was, then it's a false positive and should not be reported
+                # then it's a false positive and should not be reported
                 return (
                     symbolic_indexable_part.loop_scope != loop_scope[-1]
                     and symbolic_indexable_part.taint_scope != loop_scope[-1]
