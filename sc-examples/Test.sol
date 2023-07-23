@@ -75,6 +75,11 @@ contract Test {
 }
 
 contract Test2 {
+    struct s_struct {
+        uint256 key;
+        uint256 value;
+    }
+
     uint256 s_result;
     uint256 s_variable;
     uint256 s_condition;
@@ -161,24 +166,25 @@ contract Test2 {
         return s_result;
     }    
 
-    function func5(address key, uint x) public returns (uint256) {
+    function func5(address key, address key2, uint256 x) public returns (uint256) {
         uint256 sum;
-        uint256 sum_bad;
-        uint256 outside_bad;
+        // uint256 sum_bad;
+        // uint256 outside_bad;
         for(uint256 i = 0; i < s_list.length; i++) {
+            s_list[x] += 3;
             s_mapping[key] += i;
-            sum += s_mapping[key];
+            sum += s_mapping[key2];
 
-            // false positives
-            uint256 loop_key = i;
-            s_mapping_bad[i] += i;
-            s_mapping_bad[loop_key] += i;
-            sum_bad += s_mapping_bad[loop_key];
+            // // false positives
+            // uint256 loop_key = i;
+            // s_mapping_bad[i] += i;
+            // s_mapping_bad[loop_key] += i;
+            // sum_bad += s_mapping_bad[loop_key];
 
-            // false positives
-            outside_bad = i + x;
-            s_mapping_bad[outside_bad] += i;
-            sum_bad += s_mapping_bad[outside_bad];
+            // // false positives
+            // outside_bad = i + x;
+            // s_mapping_bad[outside_bad] += i;
+            // sum_bad += s_mapping_bad[outside_bad];
         }
 
         return s_result;
