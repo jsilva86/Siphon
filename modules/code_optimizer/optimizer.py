@@ -196,18 +196,18 @@ class Optimizer:
                 )
 
                 # write-back the value to Storage after loop
-                # FIXME: write-back is not always need, array.length = placeholder is incorrect
-                write_back = self.generate_write_back(
-                    variable_type, variable_name, placeholder_variable_name
-                )
+                if self.should_generate_write_back(variable_type, variable_name):
+                    write_back = self.generate_write_back(
+                        variable_type, variable_name, placeholder_variable_name
+                    )
 
-                # GENERATE Write-Back instruction
-                write_back_instruction = SiphonNode(pattern.instruction, write_back)
+                    # GENERATE Write-Back instruction
+                    write_back_instruction = SiphonNode(pattern.instruction, write_back)
 
-                # insert write-back after loop in block (false path)
-                block_of_scope._false_path._instructions = [
-                    write_back_instruction
-                ] + block_of_scope._false_path._instructions
+                    # insert write-back after loop in block (false path)
+                    block_of_scope._false_path._instructions = [
+                        write_back_instruction
+                    ] + block_of_scope._false_path._instructions
 
             # REPLACE storage access in line
             # same line can have multiple storage accesses
@@ -284,6 +284,10 @@ class Optimizer:
 
         # array/ array.<method>
         if not indexable_part:
+            if self.is_method_over_array(variable_name):
+                return f"{new_variable_name}_length"
+
+            # FIXME: safeguard for direct assignments to arrays
             return new_variable_name
 
         new_variable_name += f"_{indexable_part}"
@@ -317,6 +321,17 @@ class Optimizer:
 
         # if block is not found then placeholder was never generated
         return True
+
+    def should_generate_write_back(self, variable_type: Type, variable_name: str):
+        # TODO: hardcoded to work for array.<method>
+        # ideally would only write-back when needed
+        if self.is_primitive_type(variable_type) or self.is_mapping_type(variable_type):
+            return True
+
+        indexable_part = self.get_indexable_part(variable_name)
+
+        # array/ array.<method>
+        return bool(indexable_part)
 
     def generate_storage_access(
         self,
@@ -363,6 +378,12 @@ class Optimizer:
 
         # direct assignment to array / array.<method>
         if not indexable_part:
+            if self.is_method_over_array(original_var_name):
+                # uint256 placeholder_var_name = original_var_name
+                return f"uint256 {placeholder_var_name} = {original_var_name}"
+
+            # safeguard for direct assignments to arrays
+            # TODO maybe filter this out in patternMatcher
             # <var_type>[] placeholder_var_name = sanitized_variable_name
             return (
                 f"{str(variable_type)} {placeholder_var_name} = {sanitized_var_name};"
@@ -453,6 +474,14 @@ class Optimizer:
         Variable must be mapping or array
         """
         return result[1] if (result := re.search(r"\[(.*?)\]", variable_name)) else None
+
+    def is_method_over_array(self, variable_name: str):
+        """
+        Check if .length is being called over array
+
+        Pattern matcher already filtered out all other methods
+        """
+        return variable_name.split(".")[1] == "length"
 
     def get_array_type(self, variable_type: Type):
         return str(variable_type).split("[]")[0]

@@ -119,7 +119,7 @@ class PatternMatcher:
         """
         PATTERN 4: Expensive operations in a loop
 
-        Check if a variable ins being read/written to inside a loop
+        Check if a variable is being read/written to inside a loop
         """
         if (
             self.is_storage_variable_accessed(
@@ -262,10 +262,8 @@ class PatternMatcher:
         # if a block is NOT reachable via at least one path, then it's a false positive P2
         self._patterns = list(
             filter(
-                lambda pattern: (
-                    pattern.pattern_type != PatternType.REDUNDANT_CODE
-                    and pattern.pattern_type != PatternType.OPAQUE_PREDICATE
-                )
+                lambda pattern: pattern.pattern_type
+                not in [PatternType.REDUNDANT_CODE, PatternType.OPAQUE_PREDICATE]
                 or (
                     pattern.pattern_type == PatternType.REDUNDANT_CODE
                     and not any(pattern.block._reachability)
@@ -287,19 +285,19 @@ class PatternMatcher:
         Avoid flagging P6 multiple times
         """
 
-        for pattern in self._patterns:
-            # this works because each block can only have a P1 or P2
-            if (
+        return any(
+            (
                 pattern.instruction.node_id == instruction.node_id
                 or pattern.block.id == block.id
-            ):
-                if pattern.pattern_type in [
-                    PatternType.REDUNDANT_CODE,
-                    PatternType.OPAQUE_PREDICATE,
-                    PatternType.LOOP_INVARIANT_CONDITION,
-                ]:
-                    return True
-        return False
+            )
+            and pattern.pattern_type
+            in [
+                PatternType.REDUNDANT_CODE,
+                PatternType.OPAQUE_PREDICATE,
+                PatternType.LOOP_INVARIANT_CONDITION,
+            ]
+            for pattern in self._patterns
+        )
 
     def get_pattern_by_instruction_and_type(
         self, instruction: Node, pattern_type: PatternType
@@ -339,7 +337,11 @@ class PatternMatcher:
                 return True
 
             # calling method over list (list.length)
-            if symbolic_variable.is_array() and not indexable_part:
+            if (
+                symbolic_variable.is_array()
+                and not indexable_part
+                and self.is_valid_array_method(variable_name)
+            ):
                 return True
 
             if symbolic_indexable_part := symbolic_table.get_symbol(indexable_part):
@@ -406,3 +408,10 @@ class PatternMatcher:
     def are_func_args_loop_bounded(self, loop_bounded_symbols: list, func_args: list):
         loop_bounded_names = [symbol.name for symbol in loop_bounded_symbols]
         return all(arg not in loop_bounded_names for arg in func_args)
+
+    def is_valid_array_method(self, variable_name: str):
+        """
+        In the case of array only handle array.length
+        """
+
+        return variable_name.split(".")[1] == "length"
