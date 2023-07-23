@@ -185,7 +185,7 @@ class Symbol:
         self._loop_scope: int = loop_scope
 
         # Symbols that tainted the current value
-        self._tainted_by: list = taint_list if taint_list else []
+        self._tainted_by: list = taint_list or []
 
         # Scope where symbol was last tainted
         self._taint_scope: int = loop_scope

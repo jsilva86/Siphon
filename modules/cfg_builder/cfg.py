@@ -414,7 +414,7 @@ def cfg_to_dot_recursive(file, block: Block, visited_list):
         # FIXME this causes double arrows
         file.write(f'{block.id}->{block.true_path.id}[label="True"];\n')
 
-        if not block.true_path.id in visited_list:
+        if block.true_path.id not in visited_list:
             visited_list.append(block.true_path.id)
             cfg_to_dot_recursive(file, block.true_path, visited_list)
 
