@@ -143,9 +143,6 @@ class Optimizer:
         # line that will be modified to reference the new Placeholder variable
         modified_source_line = get_source_line_from_node(pattern.instruction).decode()
 
-        # find start of loop
-        loop_start_index = self.find_begin_loop_index(block_of_scope.instructions)
-
         for variable_name, s_variable_name in zip(
             pattern.variables, pattern.sanitized_variables
         ):
@@ -176,17 +173,7 @@ class Optimizer:
                 )
 
                 # GENERATE Assignment instruction
-                assignment_instruction = SiphonNode(pattern.instruction, assignment)
-
-                insert_index = loop_start_index - 1
-
-                # in case the BEGIN_LOOP is the first instruction
-                insert_index = max(insert_index, 0)
-
-                # insert assignment before BEGIN_LOOP in block
-                block_of_scope._instructions.insert(
-                    insert_index, assignment_instruction
-                )
+                self.push_assignment_to_block(pattern, block_of_scope, assignment)
 
                 # write-back the value to Storage after loop
                 if self.should_generate_write_back(variable_type, variable_name):
@@ -195,12 +182,7 @@ class Optimizer:
                     )
 
                     # GENERATE Write-Back instruction
-                    write_back_instruction = SiphonNode(pattern.instruction, write_back)
-
-                    # insert write-back after loop in block (false path)
-                    block_of_scope._false_path._instructions = [
-                        write_back_instruction
-                    ] + block_of_scope._false_path._instructions
+                    self.push_write_back_to_block(pattern, block_of_scope, write_back)
 
             # REPLACE storage access in line
             # same line can have multiple storage accesses
@@ -210,27 +192,56 @@ class Optimizer:
                 placeholder_variable_name,
             )
 
-        # print(block_of_scope.false_path.id, block_of_scope.false_path._instructions)
-        # print("original line", get_source_line_from_node(pattern.instruction))
-        # print("modified line", modified_source_line)
-
         # GENERATE modified instruction
-        modified_instruction = SiphonNode(pattern.instruction, modified_source_line)
-
-        instruction_index = self.find_instruction_index(
-            pattern.instruction, pattern.block.instructions
-        )
-
-        # replace instruction in block
-        pattern.block._instructions[instruction_index] = modified_instruction
+        self.push_modified_line_to_block(pattern, modified_source_line)
 
     def handle_loop_invariant_operation(self, pattern: LoopInvariantOperationPattern):
-        pass
+        block_of_scope = self.get_block_of_scope(pattern)
+
+        # line that will be modified to reference the new Placeholder variable
+        modified_source_line = get_source_line_from_node(pattern.instruction).decode()
+
+        for function, func_call in zip(pattern.functions, pattern.func_calls):
+            func_name = str(function)
+
+            # assume only one return type
+            return_type = function.return_type[0]
+
+            # generate unique name for placeholder
+            placeholder_variable_name = self.generate_unique_name(func_name)
+
+            # add func_arg info toa void name collision
+            placeholder_variable_name = self.enhance_with_func_args(
+                placeholder_variable_name, func_call
+            )
+
+            if self.should_generate_instructions(func_name, block_of_scope):
+                # store placeholder variable and its scope
+                self._placeholder_variables[
+                    placeholder_variable_name
+                ] = block_of_scope.id
+
+                assignment = self.generate_func_call(
+                    return_type, func_call, placeholder_variable_name
+                )
+
+                self.push_assignment_to_block(pattern, block_of_scope, assignment)
+
+                # REPLACE func call in line
+                # same line can have multiple func calls
+                modified_source_line = self.modify_source_line(
+                    modified_source_line,
+                    func_call,
+                    placeholder_variable_name,
+                )
+
+        # GENERATE modified instruction
+        self.push_modified_line_to_block(pattern, modified_source_line)
 
     def handle_loop_invariant_condition(self, pattern: LoopInvariantConditionPattern):
         pass
 
-    def get_block_of_scope(self, pattern: ExpensiveOperationInLoopPattern) -> Block:
+    def get_block_of_scope(self, pattern: Pattern) -> Block:
         """
         Given a block scope, stored in the pattern,
         traverse upwards in the CFG until the corresponding Block is found and return it
@@ -243,9 +254,7 @@ class Optimizer:
 
         return current_block
 
-    def generate_placeholder_name(
-        self, variable_type: Type, variable_name: str, sanitized_variable_name: str
-    ):
+    def generate_unique_name(self, name: str):
         """
         Generate a dummy variable to extract the value and then write back
 
@@ -258,7 +267,7 @@ class Optimizer:
 
         prefix = self.placeholder_prefix
         suffix = 0
-        new_variable_name = prefix + sanitized_variable_name
+        new_variable_name = prefix + name
 
         # avoid name collision
         while (
@@ -266,7 +275,15 @@ class Optimizer:
             or new_variable_name in function_variables
         ):
             suffix += 1
-            new_variable_name = prefix + sanitized_variable_name + "_" + str(suffix)
+            new_variable_name = prefix + name + "_" + str(suffix)
+
+        return new_variable_name
+
+    def generate_placeholder_name(
+        self, variable_type: Type, variable_name: str, sanitized_variable_name: str
+    ):
+        # avoid name collision
+        new_variable_name = self.generate_unique_name(sanitized_variable_name)
 
         if self.is_primitive_type(variable_type):
             return new_variable_name
@@ -324,6 +341,54 @@ class Optimizer:
 
         # array/ array.<method>
         return bool(indexable_part)
+
+    def push_assignment_to_block(
+        self,
+        pattern: Pattern,
+        block_of_scope: Block,
+        assignment: str,
+    ):
+        """
+        GENERATE Assignment instruction
+        """
+        assignment_instruction = SiphonNode(pattern.instruction, assignment)
+
+        # find start of loop
+        loop_start_index = self.find_begin_loop_index(block_of_scope.instructions)
+
+        insert_index = loop_start_index - 1
+
+        # in case the BEGIN_LOOP is the first instruction
+        insert_index = max(insert_index, 0)
+
+        # insert assignment before BEGIN_LOOP in block
+        block_of_scope._instructions.insert(insert_index, assignment_instruction)
+
+    def push_write_back_to_block(
+        self, pattern: Pattern, block_of_scope: Block, write_back: str
+    ):
+        """
+        GENERATE Write-Back instruction
+        """
+        write_back_instruction = SiphonNode(pattern.instruction, write_back)
+
+        # insert write-back after loop in block (false path)
+        block_of_scope._false_path._instructions = [
+            write_back_instruction
+        ] + block_of_scope._false_path._instructions
+
+    def push_modified_line_to_block(self, pattern: Pattern, modified_source_line: str):
+        """
+        GENERATE modified instruction
+        """
+        modified_instruction = SiphonNode(pattern.instruction, modified_source_line)
+
+        instruction_index = self.find_instruction_index(
+            pattern.instruction, pattern.block.instructions
+        )
+
+        # replace instruction in block
+        pattern.block._instructions[instruction_index] = modified_instruction
 
     def generate_storage_access(
         self,
@@ -403,6 +468,30 @@ class Optimizer:
         # original_var_name = placeholder_var_name
         return f"{original_var_name} = {placeholder_var_name};"
 
+    def enhance_with_func_args(self, variable_name: str, func_call: str):
+        """
+        Add func_arg info to variable name to improve name collision
+        """
+        if func_args := self.get_func_call_args(func_call):
+            abbreviated_args = [arg[:3] for arg in func_args]
+            return f"{variable_name}_{'_'.join(abbreviated_args)}"
+        return variable_name
+
+    def get_func_call_args(self, func_call: str):
+        # FIXME: duplicated in patternMatcher
+        pattern = r"(\w+)\((.*)\)"
+        # remove whitespaces
+        func_call = re.sub(r"\s+", "", func_call)
+        if match := re.match(pattern, func_call):
+            return match[2].split(",") if match[2] else []
+        return []
+
+    def generate_func_call(
+        self, return_type: Type, func_call: str, placeholder_var_name: str
+    ):
+        # <return_type> placeholder_var_name = func_call
+        return f"{str(return_type)} {placeholder_var_name} = {func_call};"
+
     def modify_source_line(
         self,
         source_line: str,
@@ -444,6 +533,7 @@ class Optimizer:
         """
         Variable must be mapping or array
         """
+        # FIXME: duplicated in patterMatcher
         return result[1] if (result := re.search(r"\[(.*?)\]", variable_name)) else None
 
     def is_method_over_array(self, variable_name: str):

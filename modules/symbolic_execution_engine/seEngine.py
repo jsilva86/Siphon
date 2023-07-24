@@ -230,7 +230,11 @@ class SymbolicExecutionEngine:
             block, instruction, if_operation, path_contraints
         )
         is_false_path_sat = self.pattern_matcher.p1_redundant_code(
-            block, instruction, if_not_operation, path_contraints, True,
+            block,
+            instruction,
+            if_not_operation,
+            path_contraints,
+            True,
         )
 
         # PATTERN 2: Opaque predicates
@@ -674,6 +678,7 @@ class SymbolicExecutionEngine:
 
         # find all the tokens in the expressions
         # operations, constants, variables, function calls and methods "." (dot)
+        # FIXME: not working for lib.func(1, 2)
         tokens = re.findall(
             r"\d+|\w+\[[^\]]*\].?\w*|\w+\([^\]]*\)|\w+.?\w*|[+\-*/%]", expression
         )

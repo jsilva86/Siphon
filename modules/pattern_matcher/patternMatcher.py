@@ -168,7 +168,7 @@ class PatternMatcher:
         If inside a loop, check if any function call
         is dependant on the current scope
         """
-
+        print(function_call)
         sanitized_function_name, func_args = self.extract_function_info(function_call)
 
         function = self.get_function_by_name(sanitized_function_name, functions)
@@ -195,7 +195,7 @@ class PatternMatcher:
             )
 
             pattern = LoopInvariantOperationPattern(
-                block, instruction, function, loop_scope[-1]
+                block, instruction, function, function_call, loop_scope[-1]
             )
 
             if not existing_pattern:
@@ -205,7 +205,8 @@ class PatternMatcher:
             elif sanitized_function_name not in [
                 function.name for function in existing_pattern.functions
             ]:
-                existing_pattern.functions.append(function)
+                existing_pattern._functions.append(function)
+                existing_pattern._func_calls.append(function_call)
 
             # debug
             self._pattern_candidates.append(pattern)
@@ -383,9 +384,11 @@ class PatternMatcher:
 
     def extract_function_info(self, function_call):
         pattern = r"(\w+)\((.*)\)"
+        # remove whitespaces
+        function_call = re.sub(r"\s+", "", function_call)
         if match := re.match(pattern, function_call):
             function_name = match[1]
-            arguments = match[2].split(", ") if match[2] else []
+            arguments = match[2].split(",") if match[2] else []
             return function_name, arguments
 
         return None, []

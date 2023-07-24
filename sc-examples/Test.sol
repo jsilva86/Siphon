@@ -210,29 +210,30 @@ contract Test2 {
         return 12;
     }
 
-    function func_arg(uint256 i) pure public returns (uint256) {
-        return 10 * i;
+    function func_arg(uint256 val) pure public returns (uint256) {
+        return 10 * val;
     }
 
     function func_with_lib_call() public returns (uint256) {
         return LibExample.pow(1, 2);
     }
 
-    function func7(uint256 j) public returns (uint256) {
+    function func7(uint256 value) public returns (uint256) {
         uint256 sum = 0;
         uint256 loop_key = 0;
         for(uint256 i = 0; i < 100; i++) {
             sum -= pure_func() + i;
             sum *= func_arg(i);
+            sum *= func_arg(value);
             sum += func_with_lib_call();
 
             // false positive
-            loop_key = i + j;
-            sum *= func_arg(loop_key);
+            // loop_key = i + j;
+            // sum *= func_arg(loop_key);
 
-            // false positive
-            uint256 key_in_loop = i * j;
-            sum *= func_arg(key_in_loop);
+            // // false positive
+            // uint256 key_in_loop = i * j;
+            // sum *= func_arg(key_in_loop);
         }
 
         return sum;
