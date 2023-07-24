@@ -168,7 +168,6 @@ class PatternMatcher:
         If inside a loop, check if any function call
         is dependant on the current scope
         """
-        print(function_call)
         sanitized_function_name, func_args = self.extract_function_info(function_call)
 
         function = self.get_function_by_name(sanitized_function_name, functions)
