@@ -47,9 +47,6 @@ class Optimizer:
     # prefix for placeholder variables
     _placeholder_prefix: str = "SP_VAR_"
 
-    # prefix for placeholder variables
-    _type_prefix: str = "SP_TYPE_"
-
     @property
     def function_name(self) -> str:
         return self._function_name
@@ -77,10 +74,6 @@ class Optimizer:
     @property
     def placeholder_prefix(self) -> str:
         return self._placeholder_prefix
-
-    @property
-    def type_prefix(self) -> str:
-        return self._type_prefix
 
     @staticmethod
     def get_instance():
@@ -198,7 +191,7 @@ class Optimizer:
                 # write-back the value to Storage after loop
                 if self.should_generate_write_back(variable_type, variable_name):
                     write_back = self.generate_write_back(
-                        variable_type, variable_name, placeholder_variable_name
+                        variable_name, placeholder_variable_name
                     )
 
                     # GENERATE Write-Back instruction
@@ -212,7 +205,6 @@ class Optimizer:
             # REPLACE storage access in line
             # same line can have multiple storage accesses
             modified_source_line = self.modify_source_line(
-                variable_type,
                 modified_source_line,
                 variable_name,
                 placeholder_variable_name,
@@ -357,7 +349,6 @@ class Optimizer:
             return self.generate_mapping_access(
                 variable_type,
                 original_var_name,
-                sanitized_var_name,
                 placeholder_var_name,
             )
 
@@ -398,46 +389,26 @@ class Optimizer:
         self,
         variable_type: Type,
         original_var_name: str,
-        sanitized_var_name: str,
         placeholder_var_name: str,
     ):
-        indexable_part = self.get_indexable_part(original_var_name)
+        _, value_type = self.retrieve_mapping_types(variable_type)
 
-        key_type, value_type = self.retrieve_mapping_types(variable_type)
-
-        if not key_type or not value_type:
+        if not value_type:
             return
 
-        struct_name = self.generate_struct_name(sanitized_var_name)
+        # <value_type> placeholder_var_name = original_var_name
+        return f"{value_type} {placeholder_var_name} = {original_var_name};"
 
-        # key = indexable_part
-        # value = original_var_name
-        # SP_TYPE_<sanitized_var_name> memory placeholder_var_name = SP_TYPE_<sanitized_var_name>(key, value)
-        return f"{struct_name} memory {placeholder_var_name} = {struct_name}({indexable_part}, {original_var_name});"
-
-    def generate_write_back(
-        self, variable_type: Type, original_var_name: str, placeholder_var_name: str
-    ):
-        if self.is_mapping_type(variable_type):
-            # original_var_name = placeholder_var_name.value
-            return f"{original_var_name} = {placeholder_var_name}.value;"
-
+    def generate_write_back(self, original_var_name: str, placeholder_var_name: str):
         # original_var_name = placeholder_var_name
         return f"{original_var_name} = {placeholder_var_name};"
 
     def modify_source_line(
         self,
-        variable_type: Type,
         source_line: str,
         variable_name: str,
         placeholder_variable_name: str,
     ):
-        if self.is_mapping_type(variable_type):
-            # access value field in struct
-            return source_line.replace(
-                variable_name, f"{placeholder_variable_name}.value"
-            )
-
         return source_line.replace(variable_name, placeholder_variable_name)
 
     def find_begin_loop_index(self, instructions: List["Node"]):
@@ -485,23 +456,6 @@ class Optimizer:
 
     def get_array_type(self, variable_type: Type):
         return str(variable_type).split("[]")[0]
-
-    def convert_mapping_to_struct(
-        self, mapping_type: Type, variable_name: str, mapping_name: str
-    ):
-        key_type, value_type = self.retrieve_mapping_types(mapping_type)
-
-        if not key_type or not value_type:
-            return
-
-        print(variable_name, mapping_name)
-        print(key_type, value_type)
-
-        struct_name = self.generate_struct_name(mapping_name)
-
-        # TODO: generate mapping and return it
-
-        print(struct_name)
 
     def retrieve_mapping_types(self, mapping_type: Type):
         pattern = r"mapping\((.*?)\s*=>\s*(.*?)\)"
