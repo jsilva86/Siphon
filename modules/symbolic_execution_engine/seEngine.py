@@ -680,9 +680,10 @@ class SymbolicExecutionEngine:
         result_list = []
 
         # find all the tokens in the expressions
-        # operations, constants, variables, function calls and methods "." (dot)
+        # operations, constants, variables, function calls, lib calls and methods "." (dot)
         tokens = re.findall(
-            r"\d+|\w+\[[^\]]*\].?\w*|\w+\([^\]]*\)|\w+.?.*|[+\-*/%]", expression
+            r"\d+|\w+\[[^\]]*\].?\w*|\w+\([^\]]*\)|\w+.?\w+\([^\]]*\)|\w+.?\w*|[+\-*/%]",
+            expression,
         )
 
         # convert all tokens to their correct format
