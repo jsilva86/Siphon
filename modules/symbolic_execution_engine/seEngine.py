@@ -432,21 +432,11 @@ class SymbolicExecutionEngine:
             # REF_XX -> LENGTH list, represents "list.length"
             # convert it to TMP_XX = list.length
             if "->" in str_ir:
-                # Replace -> with =
-                str_ir = str_ir.replace("->", "=")
-
-                # Convert LENGTH to lowercase and join with list using a dot
-                str_ir = re.sub(
-                    r"(\b\w+)\s+(\w+)",
-                    lambda match: f"{match.group(2).lower()}.{match.group(1).lower()}",
-                    str_ir,
-                )
-
-                split = str_ir.split("=", 1)
+                split = str_ir.split("->", 1)
 
                 # Extract the temporary variable being used to store and its value
                 var = split[0].strip()
-                operation = split[1].strip()
+                operation = str(ir.expression)
 
                 operations[var] = operation
                 continue
