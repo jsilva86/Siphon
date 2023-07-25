@@ -74,6 +74,10 @@ contract Test {
     }      
 }
 
+ function pure_func() pure returns (uint256) {
+        return 12;
+    }
+
 contract Test2 {
     struct s_struct {
         uint256 key;
@@ -226,6 +230,7 @@ contract Test2 {
             sum *= func_arg(i);
             sum *= func_arg(value);
             sum += func_with_lib_call();
+            sum += LibExample.pow(1,2 );
 
             // false positive
             // loop_key = i + j;

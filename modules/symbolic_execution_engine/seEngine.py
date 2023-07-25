@@ -272,6 +272,8 @@ class SymbolicExecutionEngine:
 
         variable, operation, assignment = parts
 
+        # print(assignment)
+
         # HACK: avoid changing symbolic value of loop bound variable when stepping
         if instruction.sons and instruction.sons[0].type == NodeType.IFLOOP:
             return
@@ -423,6 +425,7 @@ class SymbolicExecutionEngine:
         operations = {}
 
         for ir in instruction.irs:
+            # print(ir, ir.expression)
             # to ensure that all operations are use TMP_XX notation
             str_ir = re.sub(r"REF_([\d]+)", r"TMP_\1", str(ir))
 
@@ -678,9 +681,8 @@ class SymbolicExecutionEngine:
 
         # find all the tokens in the expressions
         # operations, constants, variables, function calls and methods "." (dot)
-        # FIXME: not working for lib.func(1, 2)
         tokens = re.findall(
-            r"\d+|\w+\[[^\]]*\].?\w*|\w+\([^\]]*\)|\w+.?\w*|[+\-*/%]", expression
+            r"\d+|\w+\[[^\]]*\].?\w*|\w+\([^\]]*\)|\w+.?.*|[+\-*/%]", expression
         )
 
         # convert all tokens to their correct format

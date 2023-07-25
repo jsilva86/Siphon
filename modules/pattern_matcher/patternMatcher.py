@@ -173,7 +173,8 @@ class PatternMatcher:
         function = self.get_function_by_name(sanitized_function_name, functions)
 
         # strict check to avoid side-effects from nested function calls or state changes
-        if self.has_internal_calls(function) or not function.pure:
+        # also safeguards against functions outside the contract
+        if not function or self.has_internal_calls(function) or not function.pure:
             return
 
         # get symbols in the current scope
