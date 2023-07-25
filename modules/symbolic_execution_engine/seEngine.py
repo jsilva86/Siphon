@@ -441,6 +441,15 @@ class SymbolicExecutionEngine:
                 operations[var] = operation
                 continue
 
+            if "_CALL" in str_ir:
+                split = str_ir.split("=", 1)
+
+                var = re.sub(r"\([^()]*\)", "", split[0].strip())
+                operation = str(ir.expression)
+
+                operations[var] = operation
+                continue
+
             split = str_ir.split("=", 1)
 
             # CONDITION TMP_XX, represents return value of operation
