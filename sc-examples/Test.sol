@@ -195,7 +195,7 @@ contract Test2 {
         uint256 sum = 0;
         uint256 i;
         for(i = 0; i < s_list.length; i++) {
-            if (list.length > min_length) {
+            if (list.length> min_length) {
                 sum += i;
             }
             if (s_list.length > min_length + i) {

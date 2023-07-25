@@ -1,4 +1,5 @@
 import re
+import hashlib
 
 from typing import List, Dict
 
@@ -45,7 +46,7 @@ class Optimizer:
     _placeholder_variables: Dict[str, int] = {}
 
     # prefix for placeholder variables
-    _placeholder_prefix: str = "SP_VAR_"
+    _placeholder_prefix: str = "SP_"
 
     @property
     def function_name(self) -> str:
@@ -227,19 +228,44 @@ class Optimizer:
 
                 self.push_assignment_to_block(pattern, block_of_scope, assignment)
 
-                # REPLACE func call in line
-                # same line can have multiple func calls
-                modified_source_line = self.modify_source_line(
-                    modified_source_line,
-                    func_call,
-                    placeholder_variable_name,
-                )
+            # REPLACE func call in line
+            # same line can have multiple func calls
+            modified_source_line = self.modify_source_line(
+                modified_source_line,
+                func_call,
+                placeholder_variable_name,
+            )
 
         # GENERATE modified instruction
         self.push_modified_line_to_block(pattern, modified_source_line)
 
     def handle_loop_invariant_condition(self, pattern: LoopInvariantConditionPattern):
-        pass
+        block_of_scope = self.get_block_of_scope(pattern)
+
+        if_condition = self.sanitize_if_condition(str(pattern.instruction))
+
+        placeholder_var_name = self.hash_if_condition(if_condition)
+
+        # line that will be modified to reference the new Placeholder variable
+        modified_source_line = (
+            get_source_line_from_node(pattern.instruction).decode().replace(" ", "")
+        )
+
+        if self.should_generate_instructions(placeholder_var_name, block_of_scope):
+            # store placeholder variable and its scope
+            self._placeholder_variables[placeholder_var_name] = block_of_scope.id
+
+            assignment = self.generate_inline_if(if_condition, placeholder_var_name)
+
+            self.push_assignment_to_block(pattern, block_of_scope, assignment)
+
+        modified_source_line = self.safe_replace_if(
+            modified_source_line,
+            placeholder_var_name,
+        )
+
+        # GENERATE modified instruction
+        self.push_modified_line_to_block(pattern, modified_source_line)
 
     def get_block_of_scope(self, pattern: Pattern) -> Block:
         """
@@ -278,6 +304,12 @@ class Optimizer:
             new_variable_name = prefix + name + "_" + str(suffix)
 
         return new_variable_name
+
+    def hash_if_condition(self, condition: str):
+        # Generate a unique hash for the condition using MD5
+        hash_value = hashlib.md5(condition.encode()).hexdigest()
+
+        return f"{self.placeholder_prefix}cond_{hash_value[:8]}"
 
     def generate_placeholder_name(
         self, variable_type: Type, variable_name: str, sanitized_variable_name: str
@@ -492,6 +524,10 @@ class Optimizer:
         # <return_type> placeholder_var_name = func_call
         return f"{str(return_type)} {placeholder_var_name} = {func_call};"
 
+    def generate_inline_if(self, if_condition: str, placeholder_var_name: str):
+        # bool placeholder_var_name = if_condition
+        return f"bool {placeholder_var_name} = {if_condition};"
+
     def modify_source_line(
         self,
         source_line: str,
@@ -499,6 +535,17 @@ class Optimizer:
         placeholder_variable_name: str,
     ):
         return source_line.replace(variable_name, placeholder_variable_name)
+
+    def safe_replace_if(self, source_line: str, placeholder_variable_name: str):
+        """
+        If condition might be incorrectly formatted.
+        Safeguard against that by forcefully replacing everything inside the IF clause
+        """
+        # match content inside parentheses
+        pattern = r"\((.*?)\)"
+
+        # replace the content inside parentheses with the placeholder
+        return re.sub(pattern, f"({placeholder_variable_name})", source_line)
 
     def find_begin_loop_index(self, instructions: List["Node"]):
         try:
@@ -555,18 +602,12 @@ class Optimizer:
 
         return match[1], match[2]
 
-    def generate_struct_name(self, mapping_name: str):
-        user_defined_types = [str(type) for type in self.cfg.contract.structures]
+    def sanitize_if_condition(self, if_condition: str):
+        pattern = r"\bIF\b(.{%d,})" % 2
 
-        prefix = self.type_prefix
-        struct_name = prefix + mapping_name
-
-        # avoid name collision with other types
-        while struct_name in user_defined_types:
-            suffix += 1
-            struct_name = prefix + struct_name + "_" + str(suffix)
-
-        return struct_name
+        if match := re.search(pattern, if_condition):
+            return match[1].strip()
+        return None
 
 
 # export the singleton
