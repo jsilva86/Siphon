@@ -233,11 +233,11 @@ class PatternMatcher:
         loop_bounded_symbols = symbolic_table.get_symbols_by_scope(loop_scope[-1])
 
         # check if any of the symbols is present in the condition
-        # taint checking is not required since we are already analysing the expression
+        # taint checking is also performed on the arguments of func_calls, keys of mappings and array indexes
         if not any(
             self.is_symbol_in_condition(condition, symbol)
             for symbol in loop_bounded_symbols
-        ):
+        ) and not self.are_arguments_loop_bounded(condition, loop_bounded_symbols):
             pattern = LoopInvariantConditionPattern(
                 block, instruction, condition, loop_scope[-1]
             )
@@ -418,3 +418,14 @@ class PatternMatcher:
         """
 
         return variable_name.split(".")[1] == "length"
+
+    def are_arguments_loop_bounded(
+        self, condition, loop_bounded_symbols: list["Symbol"]
+    ):
+        variables_to_check = [str(symbol.value) for symbol in loop_bounded_symbols]
+        print("args to check", variables_to_check)
+        print("condition", str(condition))
+        return re.search(
+            r"[\(\[].*\b(?:" + "|".join(variables_to_check) + r")\b.*[\)\]]",
+            str(condition),
+        )

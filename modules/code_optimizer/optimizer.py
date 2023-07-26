@@ -542,6 +542,7 @@ class Optimizer:
         Safeguard against that by forcefully replacing everything inside the IF clause
         """
         # match content inside parentheses
+        # FIXME: might break with other func calls inside the ifs
         pattern = r"\((.*?)\)"
 
         # replace the content inside parentheses with the placeholder

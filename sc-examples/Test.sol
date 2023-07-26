@@ -202,6 +202,10 @@ contract Test2 {
             if (list.length> min_length + pure_func()) {
                 sum += i;
             }
+            // false positive P6
+            if (list.length + list[i] > min_length + func_arg(i)) {
+                sum += i;
+            }
             if (s_list.length > min_length + i) {
                 sum -= i;
             }
@@ -226,7 +230,8 @@ contract Test2 {
         uint256 sum = 0;
         uint256 loop_key = 0;
         for(uint256 i = 0; i < 100; i++) {
-            sum -= pure_func() + i;
+            sum -= pure_func();
+            sum -= pure_func() + i + func_arg(i);
             sum *= func_arg(i);
             sum *= func_arg(value);
             sum += func_with_lib_call();
