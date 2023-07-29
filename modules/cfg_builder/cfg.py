@@ -34,6 +34,9 @@ class CFG:
         # for debugging
         self._export_cfg: bool = export_cfg
 
+    def __hash__(self):
+        return hash(self.contract.id + self.function.id)
+
     @property
     def function(self) -> Function:
         """Returns the function

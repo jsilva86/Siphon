@@ -32,11 +32,7 @@ class Optimizer:
 
     instance = None
 
-    _function_name: str = ""
-
     _cfg: CFG = None
-
-    _optimized_cfg: Block = None
 
     _patterns: List["Pattern"] = []
 
@@ -49,16 +45,8 @@ class Optimizer:
     _placeholder_prefix: str = "SP_"
 
     @property
-    def function_name(self) -> str:
-        return self._function_name
-
-    @property
     def cfg(self) -> CFG:
         return self._cfg
-
-    @property
-    def optimized_cfg(self) -> CFG:
-        return self._optimized_cfg
 
     @property
     def patterns(self) -> List["Pattern"]:
@@ -82,19 +70,21 @@ class Optimizer:
             Optimizer.instance = Optimizer()
         return Optimizer.instance
 
-    def init_instance(
-        self, function_name, cfg: CFG, patterns: List["Pattern"], export_cfg=False
-    ):
-        self._function_name = function_name
-
-        self._cfg = cfg
-
-        self._patterns = patterns
-
+    def init_instance(self, export_cfg=False):
         # debug optimized CFG
         self._export_cfg = export_cfg
 
+    def update_instance(self, cfg: CFG, patterns: List["Pattern"]):
+        # CFG to analyse
+        self._cfg = cfg
+
+        # Patterns to optimize
+        self._patterns = patterns
+
     def generate_optimized_cfg(self):
+        """
+        Optimizes the current CFG
+        """
         for pattern in self.patterns:
             match pattern.pattern_type:
                 case PatternType.REDUNDANT_CODE:
@@ -109,10 +99,10 @@ class Optimizer:
                     self.handle_loop_invariant_condition(pattern)
 
         if self.export_cfg:
-            cfg_to_dot(f"{self.function_name}-optimized", self.cfg.head)
+            cfg_to_dot(f"{self.cfg.function.name}-optimized", self.cfg.head)
 
-        # return the optimized CFG
-        return None
+        # return the optimized cfg
+        return self.cfg
 
     def handle_redundant_code(self, pattern: RedundantCodePattern):
         # last instruction is the IF condition

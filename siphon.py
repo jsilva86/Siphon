@@ -6,6 +6,8 @@ from modules.slither.slitherSingleton import slitherSingleton
 from modules.cfg_builder.cfg import CFG
 from modules.symbolic_execution_engine.seEngine import SymbolicExecutionEngine
 from modules.code_optimizer.optimizer import optimizerSingleton
+from modules.code_optimizer.codeGenerator import codeGeneratorSingleton
+from modules.pattern_matcher.patterns import Pattern
 
 
 def main() -> None:
@@ -30,16 +32,26 @@ def main() -> None:
     slitherSingleton.init_slither_instance(filename)
 
     # Build CFG and find patterns
-    cfg, patterns = analyse(contract_name, function_name, export_cfgs)
+    patterns = siphon_patterns(contract_name, function_name, export_cfgs)
 
-    # Optimizer
-    optimizerSingleton.init_instance(function_name, cfg, patterns, export_cfgs)
+    # Optimize the resulting CFGs given the found patterns
+    optimized_cfgs = optimize(patterns)
 
-    # Generate the optimized CFG
-    optimized_cfg = optimizerSingleton.generate_optimized_cfg()
+    # Generate the optimized function code
+    generate(optimized_cfgs)
 
 
-def analyse(contract_name=None, function_name=None, export_cfgs=False):
+def siphon_patterns(
+    contract_name=None, function_name=None, export_cfgs=False
+) -> dict[CFG, list[Pattern]]:
+    """
+    Returns the mapped patterns per function in each contract
+    """
+
+    # maps the patterns per function per contract
+    # the CFG provides an hash function that maps to the Contract and Function
+    patterns_per_function = {}
+
     # If contract_name is not provided, execute for all functions inside all contracts
     if contract_name is None:
         for (
@@ -49,11 +61,13 @@ def analyse(contract_name=None, function_name=None, export_cfgs=False):
             contract = slitherSingleton.get_contract_by_name(contract_name)
             for function in functions:
                 cfg, patterns = analyse_function(contract, function, export_cfgs)
+                patterns_per_function[cfg] = patterns
 
     # If contract_name is provided, but function_name is not, execute for all functions inside contract
     elif function_name is None:
         for function in slitherSingleton.get_all_functions_in_contract(contract_name):
             cfg, patterns = analyse_function(contract, function, export_cfgs)
+            patterns_per_function[cfg] = patterns
 
     else:
         # If both contract_name and function_name are provided, execute for the specific function in the contract
@@ -61,11 +75,15 @@ def analyse(contract_name=None, function_name=None, export_cfgs=False):
         function = slitherSingleton.get_function_by_name(contract_name, function_name)
 
         cfg, patterns = analyse_function(contract, function, export_cfgs)
+        patterns_per_function[cfg] = patterns
 
-    return cfg, patterns
+    return patterns_per_function
 
 
 def analyse_function(contract: Contract, function: Function, export_cfgs=False):
+    """
+    Finds patterns in a function by constructing a CFG and executing SE on it
+    """
     # build the function's CFG
     cfg = CFG(contract, function, export_cfgs)
     cfg.build_cfg()
@@ -75,6 +93,39 @@ def analyse_function(contract: Contract, function: Function, export_cfgs=False):
 
     # retrieve the found patterns
     return cfg, se_engine.find_patterns()
+
+
+def optimize(
+    patterns: dict[CFG, list[Pattern]],
+    export_cfgs: bool = False,
+) -> list[CFG]:
+    """
+    Returns the optimized list of CFGs
+    """
+
+    optimized_cfgs = []
+
+    # init the Optimized module for debug or not
+    optimizerSingleton.init_instance(export_cfgs)
+
+    for cfg, patterns in patterns.items():
+        # Optimizer
+        optimizerSingleton.update_instance(cfg, patterns)
+
+        # Generate the optimized CFG
+        optimized_cfg = optimizerSingleton.generate_optimized_cfg()
+        optimized_cfgs.append(optimized_cfg)
+
+    return optimized_cfgs
+
+
+def generate(optimized_cfgs: list[CFG]):
+    for optimized_cfg in optimized_cfgs:
+        # update the CodeGenerator instance
+        codeGeneratorSingleton.update_instance(optimized_cfg)
+
+        # the module internally handles outputing to a file format
+        codeGeneratorSingleton.generate_source_code()
 
 
 if __name__ == "__main__":
