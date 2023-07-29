@@ -423,8 +423,6 @@ class PatternMatcher:
         self, condition, loop_bounded_symbols: list["Symbol"]
     ):
         variables_to_check = [str(symbol.value) for symbol in loop_bounded_symbols]
-        print("args to check", variables_to_check)
-        print("condition", str(condition))
         return re.search(
             r"[\(\[].*\b(?:" + "|".join(variables_to_check) + r")\b.*[\)\]]",
             str(condition),
