@@ -395,7 +395,6 @@ class SymbolicExecutionEngine:
     def evaluate_default(
         self, instruction: Node, symbolic_table: SymbolicTable, path_contraints: list
     ):
-        # print("default inst", symbolic_table)
         pass
 
     def check_path_constraints(

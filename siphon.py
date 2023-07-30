@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from slither.core.declarations import Function, Contract
 
@@ -28,6 +29,10 @@ def main() -> None:
         args.export_cfgs,
     )
 
+    # output dir
+    if not os.path.exists("output"):
+        os.makedirs("output")
+
     # Wrapper around Slither
     slitherSingleton.init_slither_instance(filename)
 
@@ -35,10 +40,10 @@ def main() -> None:
     patterns = siphon_patterns(contract_name, function_name, export_cfgs)
 
     # Optimize the resulting CFGs given the found patterns
-    optimized_cfgs = optimize(patterns)
+    optimized_cfgs = optimize_patterns(patterns, export_cfgs)
 
     # Generate the optimized function code
-    generate(optimized_cfgs)
+    generate_source_code(optimized_cfgs, filename)
 
 
 def siphon_patterns(
@@ -95,7 +100,7 @@ def analyse_function(contract: Contract, function: Function, export_cfgs=False):
     return cfg, se_engine.find_patterns()
 
 
-def optimize(
+def optimize_patterns(
     patterns: dict[CFG, list[Pattern]],
     export_cfgs: bool = False,
 ) -> list[CFG]:
@@ -119,7 +124,10 @@ def optimize(
     return optimized_cfgs
 
 
-def generate(optimized_cfgs: list[CFG]):
+def generate_source_code(optimized_cfgs: list[CFG], filename: str):
+    # init Code Generator
+    codeGeneratorSingleton.init_instance(filename)
+
     for optimized_cfg in optimized_cfgs:
         # update the CodeGenerator instance
         codeGeneratorSingleton.update_instance(optimized_cfg)

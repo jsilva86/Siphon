@@ -129,4 +129,9 @@ dmypy.json
 # Dot files
 *.dot
 
+# TODO: remove this
 z3-test.py
+
+/output
+node_modules
+package-lock.json

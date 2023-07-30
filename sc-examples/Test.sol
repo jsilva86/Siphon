@@ -6,14 +6,14 @@ import "./Test2.sol";
 
 contract Test {
     int a = 69;
+
     function one() private {
         int x = 35;
         if (x < 10) {
             x = 4;
             if (x < 89) {
                 x = 3;
-            }
-            else {
+            } else {
                 x = 9;
             }
             // for (int i = 0; i < 20; i++) {
@@ -29,21 +29,19 @@ contract Test {
 
     function two() public {
         int x = 35;
-        if(x < 10) {
+        if (x < 10) {
             x = 3;
-            if(x < 9) {
+            if (x < 9) {
                 x = 12;
-            }
-            else {
+            } else {
                 x = 1234;
             }
             x = 6;
             x = 5566;
-        }
-        else {
+        } else {
             x = 9;
 
-            if(x < 67) {
+            if (x < 67) {
                 x = 8;
             }
             x = 2;
@@ -54,8 +52,8 @@ contract Test {
 
     function three() public {
         int x = 35;
-        if(x < 20) {
-            if(x < 10) {
+        if (x < 20) {
+            if (x < 10) {
                 x = 3;
             }
         }
@@ -66,17 +64,17 @@ contract Test {
         for (int i = 0; i < 10; i++) {
             // loop body
             x += 2;
-            for(int j = 0; j < 9; j++) {
+            for (int j = 0; j < 9; j++) {
                 x = 9;
             }
         }
         x = 3;
-    }      
+    }
 }
 
- function pure_func() pure returns (uint256) {
-        return 12;
-    }
+function pure_func() pure returns (uint256) {
+    return 12;
+}
 
 contract Test2 {
     struct s_struct {
@@ -91,6 +89,7 @@ contract Test2 {
     mapping(address => uint) public s_mapping;
     mapping(uint256 => uint) public s_mapping_bad;
     uint256[] s_list;
+    string s_string;
 
     function func1(uint256 x) public returns (uint256) {
         uint256 result;
@@ -98,19 +97,17 @@ contract Test2 {
         if (x > 50) {
             result = x * 2;
 
-            if(x < 25) {
+            if (x < 25) {
                 result = 3;
-            }
-            else if (x < 60) {
+            } else if (x < 60) {
                 result = 5;
-            }
-            else {
+            } else {
                 result = 900;
-                result = 9; // test P1 with P2, 
+                result = 9; // test P1 with P2,
             }
         } else {
             result = 50; // detect false positive P1
-            //result = 100; 
+            //result = 100;
         }
 
         // This code block is unreachable ( and also opaque )
@@ -126,7 +123,7 @@ contract Test2 {
         result += 2;
 
         if ((x > 10 && x < 5) || !(result != 5)) {
-            result =  x + 2;
+            result = x + 2;
         } else {
             result = x * 3;
         }
@@ -135,30 +132,29 @@ contract Test2 {
             result = 100;
         }
 
-        return result;  
+        return result;
     }
 
     function func3(uint256 x) public returns (uint256) {
         uint256 result;
         if (s_result < 100) {
-           if (s_result < 200) {
-            result = 3;
-           }
-           else {
-            result = 5;
-           }
+            if (s_result < 200) {
+                result = 3;
+            } else {
+                result = 5;
+            }
 
-           result *= 100;
+            result *= 100;
         }
 
         return result;
-    }   
+    }
 
     function func4(uint256 x) public returns (uint256) {
-        for(uint256 i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 100; i++) {
             x += s_variable * i;
-            for(uint256 j = 0; j < 100; j++) {
-                if (s_result + 1  + j < s_condition) {
+            for (uint256 j = 0; j < 100; j++) {
+                if (s_result + 1 + j < s_condition) {
                     s_variable *= i * j;
                 }
                 x = 9999;
@@ -166,15 +162,19 @@ contract Test2 {
 
             x = 123;
         }
-    
-        return s_result;
-    }    
 
-    function func5(address key, address key2, uint256 x) public returns (uint256) {
+        return s_result;
+    }
+
+    function func5(
+        address key,
+        address key2,
+        uint256 x
+    ) public returns (uint256) {
         uint256 sum;
         // uint256 sum_bad;
         // uint256 outside_bad;
-        for(uint256 i = 0; i < s_list.length; i++) {
+        for (uint256 i = 0; i < s_list.length; i++) {
             s_list[x] += 3;
             s_mapping[key] += i;
             sum += s_mapping[key2];
@@ -192,14 +192,18 @@ contract Test2 {
         }
 
         return s_result;
-    } 
+    }
 
-    function func6(uint256[] memory list, address key) public returns (uint256) {
+    function func6(
+        uint256[] memory list,
+        address key,
+        string calldata s
+    ) public view returns (uint256, bool) {
         uint256 min_length = 10;
         uint256 sum = 0;
-        uint256 i;
-        for(i = 0; i < s_list.length; i++) {
-            if (list.length> min_length + pure_func()) {
+        //uint256 i;
+        for (uint256 i = 0; i < s_list.length; i++) {
+            if (list.length > min_length + pure_func()) {
                 sum += i;
             }
             // false positive P6
@@ -211,14 +215,14 @@ contract Test2 {
             }
         }
 
-        return s_result;
-    } 
+        return (sum, true);
+    }
 
-    function pure_func() pure public returns (uint256) {
+    function pure_func() public pure returns (uint256) {
         return 12;
     }
 
-    function func_arg(uint256 val) pure public returns (uint256) {
+    function func_arg(uint256 val) public pure returns (uint256) {
         return 10 * val;
     }
 
@@ -229,13 +233,13 @@ contract Test2 {
     function func7(uint256 value) public returns (uint256) {
         uint256 sum = 0;
         uint256 loop_key = 0;
-        for(uint256 i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 100; i++) {
             sum -= pure_func();
             sum -= pure_func() + i + func_arg(i);
             sum *= func_arg(i);
             sum *= func_arg(value);
             sum += func_with_lib_call();
-            sum += LibExample.pow(1,2 );
+            sum += LibExample.pow(1, 2);
 
             // false positive
             // loop_key = i + j;
@@ -248,5 +252,4 @@ contract Test2 {
 
         return sum;
     }
-    
 }

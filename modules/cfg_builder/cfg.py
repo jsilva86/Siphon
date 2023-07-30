@@ -305,6 +305,10 @@ class CFG:
             return
 
         if node.sons:
+            # needed in the CodeGenerator to determine the closure of the IF
+            if node.sons[0].type == NodeType.ENDIF:
+                current_block.add_instruction(node.sons[0])
+
             # found a loop
             if node.sons[0].type == NodeType.IFLOOP:
                 if is_false_path:
@@ -393,11 +397,12 @@ def cfg_to_dot(filename: str, starting_node: Block):
     """
 
     # Create the directory if it doesn't exist
-    if not os.path.exists("cfgs"):
-        os.makedirs("cfgs")
+    dir_path = os.path.join("output", "cfgs")
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
 
     # Create the file path
-    file_path = os.path.join("cfgs", filename)
+    file_path = os.path.join(dir_path, filename)
 
     with open(f"{file_path}.dot", "w", encoding="utf8") as f:
         f.write("digraph{\n")

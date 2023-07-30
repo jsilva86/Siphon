@@ -26,14 +26,17 @@ class Block:
         self._false_path: Block = None
         self._prev_block: Block = None
 
-        # to ensure that loops are only traversed once
+        # used by the CFG builder to ensure that loops are only traversed once
         self._visited: bool = False
 
         # TODO is this good enough?
         self._id: int = randint(0, 10000)
 
-        # reachability via paths, used to remove P1/P2 false positives
+        # reachability via paths, used to remove P1/P2 false positives in the PatternMatcher
         self._reachability: list[int] = []
+
+        # in the CodeGenerator avoid generating again when false path ends
+        self._was_converted_to_source: bool = False
 
     def __str__(self):
         return "\n".join(
@@ -100,6 +103,13 @@ class Block:
         return self._state_variables_read
 
     @property
+    def was_converted_to_source(self) -> bool:
+        """
+        bool(was_converted_to_source): Was Block already converted to source code
+        """
+        return self._was_converted_to_source
+
+    @property
     def visited(self) -> bool:
         """
         Returns: was the block already visited
@@ -125,6 +135,10 @@ class Block:
     @visited.setter
     def visited(self, value):
         self._visited = value
+
+    @was_converted_to_source.setter
+    def was_converted_to_source(self, value):
+        self._was_converted_to_source = value
 
     def add_instruction(self, instruction: Node):
         self._instructions.append(instruction)
