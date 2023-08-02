@@ -90,6 +90,24 @@ contract Test2 {
     mapping(uint256 => uint) public s_mapping_bad;
     uint256[] s_list;
     string s_string;
+    
+    function func1_x(uint256 x) public returns (uint256) {
+        uint256 result;
+
+        if (x > 50) {
+            result = x * 2;
+        } 
+        else {
+            result = 200; // detect false positive P1
+        }
+
+        // // This code block is unreachable ( and also opaque )
+        if (result < 100) {
+            result = 100;
+        }
+
+        return result;
+    }
 
     function func1(uint256 x) public returns (uint256) {
         uint256 result;
@@ -99,15 +117,24 @@ contract Test2 {
 
             if (x < 25) {
                 result = 3;
-            } else if (x < 60) {
-                result = 5;
-            } else {
-                result = 900;
-                result = 9; // test P1 with P2,
-            }
-        } else {
+            } 
+            // else if (x < 60) {
+            //     result = 5;
+            // } 
+            // else {
+            //     result = 900;
+            //     result = 9; // test P1 with P2,
+            // }
+        } 
+        else {
             result = 50; // detect false positive P1
             //result = 100;
+            if (s_result < 60){
+                s_result = 3;
+            }
+            else {
+                s_result = 6;
+            }
         }
 
         // This code block is unreachable ( and also opaque )

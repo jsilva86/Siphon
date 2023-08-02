@@ -1,4 +1,5 @@
 import os
+from collections import deque
 
 from slither.core.cfg.node import Node, NodeType
 from slither.core.declarations import Function
@@ -103,40 +104,69 @@ class CodeGenerator:
         return f"returns ( {', '.join(return_types)} )"
 
     def generate_function_body(
-        self, file, current_block: Block, visited_source_lines: set
+        self, file, root_block: Block, visited_source_lines: set
     ):
-        if not current_block or current_block.was_converted_to_source:
+        if not root_block:
             return
 
-        # mark the block as generated to avoid duplicate code generation from false paths
-        current_block.was_converted_to_source = True
+        # Use a deque for custom pre-order traversal
+        queue = deque([root_block])
+        false_queue = deque([])
 
-        for instruction in current_block.instructions:
-            # Slither Nodes can reference the same line multiple times,
-            # for example, the "for loop" init, condition and update.
-            # in those cases, the line only needs to be generated once
-            if isinstance(instruction, Node):
-                # close block
-                # FIXME: same problem as loops.... ENDIF brings rest of line...
-                if instruction.type in [NodeType.ENDIF, NodeType.ENDLOOP]:
-                    file.write("}")
-                    continue
+        reached_end_if = False
 
-                source_line_num = instruction.source_mapping.lines[0]
-                if source_line_num not in visited_source_lines:
-                    source_line = get_source_line_from_node(instruction).decode()
-                    file.write(source_line)
+        current_block = None
 
-                visited_source_lines.add(source_line_num)
+        while queue:
+            # After finding an ENDIF, see if any false paths are still unvisited, if they are explore them
+            # safeguard against no ELSE case
+            if (
+                false_queue
+                and reached_end_if
+                and not (
+                    current_block and current_block.true_path.id == false_queue[-1].id
+                )
+            ):
+                # detect no else
+                current_block = false_queue.pop()
+                print("aqui 2", current_block.id)
+                file.write("else {")
             else:
-                # Siphon Nodes are only referenced once
-                file.write(str(instruction))
+                current_block = queue.pop()
 
-        # traverse both paths
-        self.generate_function_body(file, current_block.true_path, visited_source_lines)
-        self.generate_function_body(
-            file, current_block.false_path, visited_source_lines
-        )
+            reached_end_if = False
+            if current_block.was_converted_to_source:
+                continue
+
+            # Mark the block as generated to avoid duplicate code generation from false paths
+            current_block.was_converted_to_source = True
+            for instruction in current_block.instructions:
+                # Slither Nodes can reference the same line multiple times,
+                # for example, the "for loop" init, condition, and update.
+                # in those cases, the line only needs to be generated once
+                if isinstance(instruction, Node):
+                    # Close block
+                    # FIXME: same problem as loops.... ENDIF brings rest of line...
+                    if instruction.type in [NodeType.ENDIF, NodeType.ENDLOOP]:
+                        reached_end_if = True
+                        file.write("}")
+                        continue
+
+                    source_line_num = instruction.source_mapping.lines[0]
+                    if source_line_num not in visited_source_lines:
+                        source_line = get_source_line_from_node(instruction).decode()
+                        start = instruction.source_mapping.starting_column - 1
+                        file.write(source_line)
+
+                    visited_source_lines.add(source_line_num)
+                else:
+                    # Siphon Nodes are only referenced once
+                    file.write(str(instruction))
+
+            if current_block.false_path:
+                false_queue.append(current_block.false_path)
+            if current_block.true_path:
+                queue.append(current_block.true_path)
 
 
 def get_source_line_from_node(instruction: Node):

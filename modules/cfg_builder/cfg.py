@@ -204,6 +204,12 @@ class CFG:
 
         if node.sons[0].type == NodeType.ENDIF:
             # avoid creating a new block if next instruction is the end of an if
+
+            # FIXME: this will only work for up to two nested IFS
+            # Add additional ENDIF to close outside IF
+            if is_false_path and current_block.instructions[-2].type != NodeType.ENDIF:
+                current_block.add_instruction(node)
+
             self.build_cfg_recursive(
                 node.sons[0],
                 current_block,

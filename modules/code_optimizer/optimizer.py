@@ -105,20 +105,25 @@ class Optimizer:
         return self.cfg
 
     def handle_redundant_code(self, pattern: RedundantCodePattern):
-        # last instruction is the IF condition
-        pattern.block._instructions.pop()
+        # find IF condition
+        for i in range(len(pattern.block._instructions) - 1, -1, -1):
+            if pattern.block._instructions[i].type == NodeType.IF:
+                pattern.block._instructions.pop(i)
+                break
 
         # the false path is now the true path, IF it exists
         if pattern.block.false_path:
             pattern.block.true_path = pattern.block.false_path
             pattern.block.false_path = None
-        else:
-            pattern.block.true_path = None
 
     def handle_opaque_predicate(self, pattern: OpaquePredicatePattern):
         # last instruction is the IF condition
         # no need to have since it's always true
         pattern.block._instructions.pop()
+
+        # TODO: traverse tree and find corresponding ENDIF and remove it.
+        # Keep track of IF Depth to know which ENDIF to remove; increment value to ignore on IF
+        # remove ENDIF if value is zero (no depth) decrement if not zero to skip
 
         # since it's a tautology the nagation will never be executed
         # remove the branch if it exists
