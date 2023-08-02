@@ -118,13 +118,13 @@ contract Test2 {
             if (x < 25) {
                 result = 3;
             } 
-            // else if (x < 60) {
-            //     result = 5;
-            // } 
-            // else {
-            //     result = 900;
-            //     result = 9; // test P1 with P2,
-            // }
+            else if (x < 60) {
+                result = 5;
+            } 
+            else {
+                result = 900;
+                result = 9; // test P1 with P2,
+            }
         } 
         else {
             result = 50; // detect false positive P1

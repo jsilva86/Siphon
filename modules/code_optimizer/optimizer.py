@@ -125,6 +125,8 @@ class Optimizer:
         # Keep track of IF Depth to know which ENDIF to remove; increment value to ignore on IF
         # remove ENDIF if value is zero (no depth) decrement if not zero to skip
 
+        self.remove_trailing_end_if(pattern.block)
+
         # since it's a tautology the nagation will never be executed
         # remove the branch if it exists
         if pattern.block.false_path:
@@ -604,6 +606,25 @@ class Optimizer:
             return match[1].strip()
         return None
 
+    def remove_trailing_end_if(self, starting_block: Block):
+        if_depth = 1
+
+        current_block = starting_block
+
+        while True:
+            # handle nested IFs
+            if current_block._instructions:
+                if current_block._instructions[-1].type == NodeType.IF:
+                    if_depth += 1
+                elif current_block._instructions[-1].type == NodeType.ENDIF:
+                    if_depth -= 1
+
+            # corresponding ENDIF found, remove it
+            if if_depth == 0:
+                current_block._instructions.pop()
+                return
+
+            current_block = current_block.true_path
 
 # export the singleton
 optimizerSingleton = Optimizer.get_instance()

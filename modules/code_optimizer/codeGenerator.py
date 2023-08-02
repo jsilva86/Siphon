@@ -127,9 +127,8 @@ class CodeGenerator:
                     current_block and current_block.true_path.id == false_queue[-1].id
                 )
             ):
-                # detect no else
+                # else branch exists
                 current_block = false_queue.pop()
-                print("aqui 2", current_block.id)
                 file.write("else {")
             else:
                 current_block = queue.pop()
