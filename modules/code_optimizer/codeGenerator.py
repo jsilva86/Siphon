@@ -155,6 +155,8 @@ class CodeGenerator:
                     if source_line_num not in visited_source_lines:
                         source_line = get_source_line_from_node(instruction).decode()
                         start = instruction.source_mapping.starting_column - 1
+                        end = instruction.source_mapping.ending_column - 1
+                        print(instruction.type, source_line[start:end])
                         file.write(source_line)
 
                     visited_source_lines.add(source_line_num)

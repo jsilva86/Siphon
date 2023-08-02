@@ -163,6 +163,11 @@ class SymbolicExecutionEngine:
             # else case is optional
             new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(false_path_constraint)
+
+            # exiting from loop, pop current scope
+            if block.instructions[-1].type == NodeType.IFLOOP:
+                new_loop_scope.pop()
+
             self.execute_block(
                 block.false_path,
                 new_symbolic_table,
@@ -383,6 +388,8 @@ class SymbolicExecutionEngine:
         # to avoid loops
         is_visited = block.visited
         block.visited = True
+
+        print(loop_scope)
 
         # FIXME: since we are only stopping the loop from happening, all instructions prior will still be executed again
         return {

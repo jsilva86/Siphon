@@ -94,16 +94,8 @@ contract Test2 {
     function func1_x(uint256 x) public returns (uint256) {
         uint256 result;
 
-        if (x > 50) {
-            result = x * 2;
-        } 
-        else {
-            result = 200; // detect false positive P1
-        }
-
-        // // This code block is unreachable ( and also opaque )
-        if (result < 100) {
-            result = 100;
+        for(uint256 i = 0; i < 10; i++) {
+            result += i;
         }
 
         return result;
