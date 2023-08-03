@@ -58,7 +58,7 @@ class CodeGenerator:
         with open(f"{file_path}.sol", "w", encoding="utf8") as f:
             # adds initial "{"
             self.generate_function_declaration(f)
-            self.generate_function_body(f, starting_node, set())
+            self.generate_function_body(f, starting_node)
             # close function scope
             f.write("}")
 
@@ -104,9 +104,7 @@ class CodeGenerator:
         return_types = [str(type) for type in self.cfg.function.return_type]
         return f"returns ( {', '.join(return_types)} )"
 
-    def generate_function_body(
-        self, file, root_block: Block, visited_source_lines: set
-    ):
+    def generate_function_body(self, file, root_block: Block):
         if not root_block:
             return
 
@@ -129,8 +127,12 @@ class CodeGenerator:
                 )
             ):
                 # else branch exists
+                is_loop_end = current_block.instructions[-1].type == NodeType.ENDLOOP
                 current_block = false_queue.pop()
-                file.write("else {")
+
+                # loop false branches are not ELSE
+                if not is_loop_end:
+                    file.write("else {")
             else:
                 current_block = queue.pop()
 
@@ -140,24 +142,30 @@ class CodeGenerator:
 
             # Mark the block as generated to avoid duplicate code generation from false paths
             current_block.was_converted_to_source = True
-            for instruction in current_block.instructions:
+            for index, instruction in enumerate(current_block.instructions):
                 # Slither Nodes can reference the same line multiple times,
                 # for example, the "for loop" init, condition, and update.
                 # in those cases, the line only needs to be generated once
                 if isinstance(instruction, Node):
                     # Close block
                     # FIXME: same problem as loops.... ENDIF brings rest of line...
+
+                    # ignore loop init instruction, START LOOP label and loop increment
+                    if (
+                        index + 1 != len(current_block.instructions)
+                        and current_block.instructions[index + 1].type
+                        in [NodeType.STARTLOOP, NodeType.ENDLOOP]
+                    ) or instruction.type == NodeType.STARTLOOP:
+                        continue
+
                     if instruction.type in [NodeType.ENDIF, NodeType.ENDLOOP]:
                         reached_end_if = True
                         file.write("}")
                         continue
 
-                    source_line_num = instruction.source_mapping.lines[0]
-                    if source_line_num not in visited_source_lines:
-                        source_line = get_source_line_from_node(instruction)
-                        file.write(source_line)
+                    source_line = get_source_line_from_node(instruction)
+                    file.write(source_line)
 
-                    visited_source_lines.add(source_line_num)
                 else:
                     # Siphon Nodes are only referenced once
                     file.write(str(instruction))
@@ -183,7 +191,6 @@ def get_source_line_from_node(instruction: Node):
     # barebones information from line
     # ex: if (x < 60) -> x < 60
     source_line = raw_line[start:end]
-    print(instruction.type)
 
     match instruction.type:
         case NodeType.IF:
