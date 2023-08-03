@@ -139,7 +139,7 @@ class Optimizer:
         block_of_scope = self.get_block_of_scope(pattern)
 
         # line that will be modified to reference the new Placeholder variable
-        modified_source_line = get_source_line_from_node(pattern.instruction).decode()
+        modified_source_line = get_source_line_from_node(pattern.instruction)
 
         for variable_name, s_variable_name in zip(
             pattern.variables, pattern.sanitized_variables
@@ -197,7 +197,7 @@ class Optimizer:
         block_of_scope = self.get_block_of_scope(pattern)
 
         # line that will be modified to reference the new Placeholder variable
-        modified_source_line = get_source_line_from_node(pattern.instruction).decode()
+        modified_source_line = get_source_line_from_node(pattern.instruction)
 
         for function, func_call in zip(pattern.functions, pattern.func_calls):
             func_name = str(function)
@@ -244,8 +244,8 @@ class Optimizer:
         placeholder_var_name = self.hash_if_condition(if_condition)
 
         # line that will be modified to reference the new Placeholder variable
-        modified_source_line = (
-            get_source_line_from_node(pattern.instruction).decode().replace(" ", "")
+        modified_source_line = get_source_line_from_node(pattern.instruction).replace(
+            " ", ""
         )
 
         if self.should_generate_instructions(placeholder_var_name, block_of_scope):
@@ -625,6 +625,7 @@ class Optimizer:
                 return
 
             current_block = current_block.true_path
+
 
 # export the singleton
 optimizerSingleton = Optimizer.get_instance()

@@ -1,5 +1,6 @@
 import os
 from collections import deque
+import re
 
 from slither.core.cfg.node import Node, NodeType
 from slither.core.declarations import Function
@@ -153,10 +154,7 @@ class CodeGenerator:
 
                     source_line_num = instruction.source_mapping.lines[0]
                     if source_line_num not in visited_source_lines:
-                        source_line = get_source_line_from_node(instruction).decode()
-                        start = instruction.source_mapping.starting_column - 1
-                        end = instruction.source_mapping.ending_column - 1
-                        print(instruction.type, source_line[start:end])
+                        source_line = get_source_line_from_node(instruction)
                         file.write(source_line)
 
                     visited_source_lines.add(source_line_num)
@@ -175,9 +173,30 @@ def get_source_line_from_node(instruction: Node):
     # start line of contract:
     # print(get_source_line_from_node(self.cfg._contract))
     # TODO wont work for multiline instructiosn: concat all lines[]
-    return slitherSingleton.slither.crytic_compile.get_code_from_line(
+    raw_line = slitherSingleton.slither.crytic_compile.get_code_from_line(
         "sc-examples/Test.sol", instruction.source_mapping.lines[0]
-    )
+    ).decode()
+
+    start = instruction.source_mapping.starting_column - 1
+    end = instruction.source_mapping.ending_column - 1
+
+    # barebones information from line
+    # ex: if (x < 60) -> x < 60
+    source_line = raw_line[start:end]
+    print(instruction.type)
+
+    match instruction.type:
+        case NodeType.IF:
+            return f"if ({source_line}) {{"
+        case NodeType.IFLOOP:
+            # match content inside parentheses
+            pattern = r"\((?:[^()]*\([^()]*\)|[^()]+)\)"
+            content = re.findall(pattern, raw_line)[0]
+            print("aqui")
+            return f"for{content} {{"
+
+        case _:
+            return f"{source_line};"
 
 
 # export the singleton
