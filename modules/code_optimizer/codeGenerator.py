@@ -116,9 +116,9 @@ class CodeGenerator:
 
         current_block = None
 
-        while queue:
+        while queue or false_queue:
             # After finding an ENDIF, see if any false paths are still unvisited, if they are explore them
-            # safeguard against no ELSE case
+            # safeguard against no ELSE case, since both of them point to the same block: just do true path
             if (
                 false_queue
                 and reached_end_if
@@ -133,6 +133,11 @@ class CodeGenerator:
                 # loop false branches are not ELSE
                 if not is_loop_end:
                     file.write("else {")
+
+            # process trailing false paths
+            elif not queue and false_queue:
+                current_block = false_queue.pop()
+
             else:
                 current_block = queue.pop()
 
@@ -141,16 +146,17 @@ class CodeGenerator:
                 continue
 
             # Mark the block as generated to avoid duplicate code generation from false paths
+            print("ID MARKED", current_block.id)
             current_block.was_converted_to_source = True
             for index, instruction in enumerate(current_block.instructions):
+                print(instruction)
                 # Slither Nodes can reference the same line multiple times,
                 # for example, the "for loop" init, condition, and update.
                 # in those cases, the line only needs to be generated once
                 if isinstance(instruction, Node):
-                    # Close block
-                    # FIXME: same problem as loops.... ENDIF brings rest of line...
-
                     # ignore loop init instruction, START LOOP label and loop increment
+                    # IFLOOP instruction handles all of them
+                    # modified for loops are inline by siphon nodes and trailing instructions are removed here
                     if (
                         index + 1 != len(current_block.instructions)
                         and current_block.instructions[index + 1].type
@@ -178,9 +184,6 @@ class CodeGenerator:
 
 def get_source_line_from_node(instruction: Node):
     # TODO: hardcoded filename...
-    # start line of contract:
-    # print(get_source_line_from_node(self.cfg._contract))
-    # TODO wont work for multiline instructiosn: concat all lines[]
     raw_line = slitherSingleton.slither.crytic_compile.get_code_from_line(
         "sc-examples/Test.sol", instruction.source_mapping.lines[0]
     ).decode()
@@ -199,7 +202,6 @@ def get_source_line_from_node(instruction: Node):
             # match content inside parentheses
             pattern = r"\((?:[^()]*\([^()]*\)|[^()]+)\)"
             content = re.findall(pattern, raw_line)[0]
-            print("aqui")
             return f"for{content} {{"
 
         case _:
