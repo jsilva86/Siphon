@@ -38,6 +38,8 @@ class Optimizer:
 
     _export_cfg: bool = False
 
+    _verbose: bool = False
+
     # generated placeholders and their scope
     _placeholder_variables: Dict[str, int] = {}
 
@@ -57,8 +59,8 @@ class Optimizer:
         return self._export_cfg
 
     @property
-    def prefix(self) -> str:
-        return self._prefix
+    def verbose(self) -> bool:
+        return self._verbose
 
     @property
     def placeholder_prefix(self) -> str:
@@ -70,9 +72,10 @@ class Optimizer:
             Optimizer.instance = Optimizer()
         return Optimizer.instance
 
-    def init_instance(self, export_cfg=False):
+    def init_instance(self, export_cfg=False, verbose=False):
         # debug optimized CFG
         self._export_cfg = export_cfg
+        self._verbose = verbose
 
     def update_instance(self, cfg: CFG, patterns: List["Pattern"]):
         # CFG to analyse
@@ -86,20 +89,39 @@ class Optimizer:
         Optimizes the current CFG
         """
         for pattern in self.patterns:
+            matched_pattern = None
             match pattern.pattern_type:
                 case PatternType.REDUNDANT_CODE:
                     self.handle_redundant_code(pattern)
+                    matched_pattern = "REDUNDANT_CODE"
                 case PatternType.OPAQUE_PREDICATE:
                     self.handle_opaque_predicate(pattern)
+                    matched_pattern = "OPAQUE_PREDICATE"
                 case PatternType.EXPENSIVE_OPERATION_IN_LOOP:
                     self.handle_expensive_operation_in_loop(pattern)
+                    matched_pattern = "EXPENSIVE_OPERATION_IN_LOOP"
                 case PatternType.LOOP_INVARIANT_OPERATION:
                     self.handle_loop_invariant_operation(pattern)
+                    matched_pattern = "LOOP_INVARIANT_OPERATION"
                 case PatternType.LOOP_INVARIANT_CONDITION:
                     self.handle_loop_invariant_condition(pattern)
+                    matched_pattern = "LOOP_INVARIANT_CONDITION"
+
+            if self.verbose:
+                print(" - Optimized:")
+                print(f"    - Type: {matched_pattern}")
+                print(f"    - Line: {pattern.instruction}")
+                print(
+                    f"    - Line Number: {pattern.instruction.source_mapping.lines[0]}\n"
+                )
 
         if self.export_cfg:
-            cfg_to_dot(self.cfg.contract.name, self.cfg.function.name, f"{self.cfg.function.name}-optimized", self.cfg.head)
+            cfg_to_dot(
+                self.cfg.contract.name,
+                self.cfg.function.name,
+                f"{self.cfg.function.name}-optimized",
+                self.cfg.head,
+            )
 
         # return the optimized cfg
         return self.cfg

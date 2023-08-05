@@ -37,7 +37,7 @@ class PatternMatcher:
 
         output = "                *Patterns*               \n\n"
         for pattern in self._patterns:
-            output += str(pattern)
+            output += str(pattern) + "\n"
         output += "\n"
         return output
 
