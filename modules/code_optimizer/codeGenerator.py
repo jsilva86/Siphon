@@ -146,10 +146,8 @@ class CodeGenerator:
                 continue
 
             # Mark the block as generated to avoid duplicate code generation from false paths
-            print("ID MARKED", current_block.id)
             current_block.was_converted_to_source = True
             for index, instruction in enumerate(current_block.instructions):
-                print(instruction)
                 # Slither Nodes can reference the same line multiple times,
                 # for example, the "for loop" init, condition, and update.
                 # in those cases, the line only needs to be generated once

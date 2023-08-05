@@ -121,10 +121,7 @@ class Optimizer:
         # no need to have since it's always true
         pattern.block._instructions.pop()
 
-        # TODO: traverse tree and find corresponding ENDIF and remove it.
-        # Keep track of IF Depth to know which ENDIF to remove; increment value to ignore on IF
-        # remove ENDIF if value is zero (no depth) decrement if not zero to skip
-
+        # traverse tree and find corresponding ENDIF and remove it.
         self.remove_trailing_end_if(pattern.block)
 
         # since it's a tautology the nagation will never be executed
@@ -607,6 +604,11 @@ class Optimizer:
         return None
 
     def remove_trailing_end_if(self, starting_block: Block):
+        """
+        Keep track of IF Depth to know which ENDIF to remove; increment value to ignore on IF
+
+        remove ENDIF if value is zero (no depth) decrement if not zero to skip
+        """
         if_depth = 1
 
         current_block = starting_block

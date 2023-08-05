@@ -389,8 +389,6 @@ class SymbolicExecutionEngine:
         is_visited = block.visited
         block.visited = True
 
-        print(loop_scope)
-
         # FIXME: since we are only stopping the loop from happening, all instructions prior will still be executed again
         return {
             "should_traverse_true_path": not is_visited,
