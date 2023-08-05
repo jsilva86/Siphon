@@ -75,7 +75,7 @@ def siphon_patterns(
                 patterns_per_function[cfg] = patterns
 
     # If contract_name is provided, but function_name is not, execute for all functions inside contract
-    elif function_name is None:
+    elif not function_name:
         contract = slitherSingleton.get_contract_by_name(contract_name)
         for function in slitherSingleton.get_all_functions_in_contract(contract_name):
             cfg, patterns = analyse_function(contract, function, export_cfgs, verbose)
