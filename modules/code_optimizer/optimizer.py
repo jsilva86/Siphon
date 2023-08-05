@@ -99,7 +99,7 @@ class Optimizer:
                     self.handle_loop_invariant_condition(pattern)
 
         if self.export_cfg:
-            cfg_to_dot(f"{self.cfg.function.name}-optimized", self.cfg.head)
+            cfg_to_dot(self.cfg.contract.name, self.cfg.function.name, f"{self.cfg.function.name}-optimized", self.cfg.head)
 
         # return the optimized cfg
         return self.cfg

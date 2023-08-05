@@ -98,7 +98,12 @@ class CFG:
                 break
 
         if self.export_cfg:
-            cfg_to_dot(self.function.name, self.head)
+            cfg_to_dot(
+                self.contract.name,
+                self.function.name,
+                self.function.name,
+                self.head,
+            )
 
     def build_cfg_recursive(
         self,
@@ -207,7 +212,11 @@ class CFG:
 
             # FIXME: this will only work for up to two nested IFS
             # Add additional ENDIF to close outside IF
-            if is_false_path and current_block.instructions[-2].type != NodeType.ENDIF:
+            if (
+                is_false_path
+                and len(current_block.instructions) > 1
+                and current_block.instructions[-2].type != NodeType.ENDIF
+            ):
                 current_block.add_instruction(node)
 
             self.build_cfg_recursive(
@@ -395,7 +404,7 @@ class CFG:
         return self.contract.structures
 
 
-def cfg_to_dot(filename: str, starting_node: Block):
+def cfg_to_dot(dir: str, sub_dir: str, filename: str, starting_node: Block):
     """
         Export the function to a dot file. Useful for debugging.
     Args:
@@ -403,7 +412,7 @@ def cfg_to_dot(filename: str, starting_node: Block):
     """
 
     # Create the directory if it doesn't exist
-    dir_path = os.path.join("output", "cfgs")
+    dir_path = os.path.join("output", dir, sub_dir, "cfgs")
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 

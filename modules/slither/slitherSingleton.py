@@ -79,8 +79,9 @@ class SlitherSingleton:
                         {
                             fn
                             for fn in contract.functions
-                            if fn.full_name
-                            != "slitherConstructorVariables()"  # to ignore the constructor
+                            if not fn.name.startswith(
+                                "slither"
+                            )  # ignore functions injected by slither
                         }
                     )
                 }

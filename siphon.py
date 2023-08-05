@@ -70,6 +70,7 @@ def siphon_patterns(
 
     # If contract_name is provided, but function_name is not, execute for all functions inside contract
     elif function_name is None:
+        contract = slitherSingleton.get_contract_by_name(contract_name)
         for function in slitherSingleton.get_all_functions_in_contract(contract_name):
             cfg, patterns = analyse_function(contract, function, export_cfgs)
             patterns_per_function[cfg] = patterns
@@ -114,6 +115,10 @@ def optimize_patterns(
     optimizerSingleton.init_instance(export_cfgs)
 
     for cfg, patterns in patterns.items():
+        if not patterns:
+            # no point optimizing if no patterns are found
+            continue
+
         # Optimizer
         optimizerSingleton.update_instance(cfg, patterns)
 

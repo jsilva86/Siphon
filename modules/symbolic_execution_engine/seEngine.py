@@ -84,10 +84,28 @@ class SymbolicExecutionEngine:
         # check for false positives
         self.pattern_matcher.remove_false_positives()
 
-        print(self.pattern_matcher)
+        # export the patterns to a file
+        self.export_patterns()
 
         # return the found pattterns
         return self.pattern_matcher._patterns
+
+    def export_patterns(self):
+        dir_path = os.path.join(
+            "output", self.cfg.contract.name, self.cfg.function.name
+        )
+
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
+        # Create the file path
+        file_path = os.path.join(dir_path, "patterns")
+
+        with open(f"{file_path}.txt", "w", encoding="utf8") as f:
+            if not self.pattern_matcher._patterns:
+                f.write("** No Patterns found **")
+            else:
+                f.write(str(self.pattern_matcher))
 
     def execute_block(
         self,
@@ -283,7 +301,8 @@ class SymbolicExecutionEngine:
 
         # HACK: avoid giving a value to loop bounded variables
         if (
-            instruction.sons[0]
+            instruction.sons
+            and instruction.sons[0]
             and instruction.sons[0].type == NodeType.STARTLOOP
             and instruction.sons[0].sons[0]
             and instruction.sons[0].sons[0].type == NodeType.IFLOOP
