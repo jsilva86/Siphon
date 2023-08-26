@@ -168,7 +168,7 @@ class CodeGenerator:
                         file.write("}")
                         continue
 
-                    source_line = get_source_line_from_node(instruction)
+                    source_line = get_source_line_from_node(self.filename, instruction)
                     file.write(source_line)
 
                 else:
@@ -181,10 +181,9 @@ class CodeGenerator:
                 queue.append(current_block.true_path)
 
 
-def get_source_line_from_node(instruction: Node):
-    # TODO: hardcoded filename...
+def get_source_line_from_node(filename: str, instruction: Node):
     raw_line = slitherSingleton.slither.crytic_compile.get_code_from_line(
-        "sc-examples/Test.sol", instruction.source_mapping.lines[0]
+        filename, instruction.source_mapping.lines[0]
     ).decode()
 
     start = instruction.source_mapping.starting_column - 1

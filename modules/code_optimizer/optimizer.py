@@ -46,6 +46,8 @@ class Optimizer:
     # prefix for placeholder variables
     _placeholder_prefix: str = "SP_"
 
+    _filename: str = ""
+
     @property
     def cfg(self) -> CFG:
         return self._cfg
@@ -66,13 +68,19 @@ class Optimizer:
     def placeholder_prefix(self) -> str:
         return self._placeholder_prefix
 
+    @property
+    def filename(self) -> str:
+        return self._filename
+
     @staticmethod
     def get_instance():
         if not Optimizer.instance:
             Optimizer.instance = Optimizer()
         return Optimizer.instance
 
-    def init_instance(self, export_cfg=False, verbose=False):
+    def init_instance(self, filename: str, export_cfg=False, verbose=False):
+        self._filename = filename
+
         # debug optimized CFG
         self._export_cfg = export_cfg
         self._verbose = verbose
@@ -158,7 +166,9 @@ class Optimizer:
         block_of_scope = self.get_block_of_scope(pattern)
 
         # line that will be modified to reference the new Placeholder variable
-        modified_source_line = get_source_line_from_node(pattern.instruction)
+        modified_source_line = get_source_line_from_node(
+            self.filename, pattern.instruction
+        )
 
         for variable_name, s_variable_name in zip(
             pattern.variables, pattern.sanitized_variables
@@ -216,7 +226,9 @@ class Optimizer:
         block_of_scope = self.get_block_of_scope(pattern)
 
         # line that will be modified to reference the new Placeholder variable
-        modified_source_line = get_source_line_from_node(pattern.instruction)
+        modified_source_line = get_source_line_from_node(
+            self.filename, pattern.instruction
+        )
 
         for function, func_call in zip(pattern.functions, pattern.func_calls):
             func_name = str(function)
@@ -263,9 +275,9 @@ class Optimizer:
         placeholder_var_name = self.hash_if_condition(if_condition)
 
         # line that will be modified to reference the new Placeholder variable
-        modified_source_line = get_source_line_from_node(pattern.instruction).replace(
-            " ", ""
-        )
+        modified_source_line = get_source_line_from_node(
+            self.filename, pattern.instruction
+        ).replace(" ", "")
 
         if self.should_generate_instructions(placeholder_var_name, block_of_scope):
             # store placeholder variable and its scope

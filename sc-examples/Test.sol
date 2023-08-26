@@ -66,18 +66,18 @@ contract Test {
     }
 
     function func2(uint256 x) public returns (uint256) {
-        uint256 result = 5 + x + 12;
+        uint256 result = 5 + x + 12 + pure_func() + s_list[1] + x;
         result += 2;
 
-        if ((x > 10 && x < 5) || !(result != 5)) {
-            result = x + 2;
-        } else {
-            result = x * 3;
-        }
+        // if ((x > 10 && x < 5) || !(result != 5)) {
+        //     result = x + 2;
+        // } else {
+        //     result = x * 3;
+        // }
 
-        if (result + x > 100) {
-            result = 100;
-        }
+        // if (result + x > 100) {
+        //     result = 100;
+        // }
 
         return result;
     }

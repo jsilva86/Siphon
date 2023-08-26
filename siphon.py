@@ -42,7 +42,7 @@ def main() -> None:
     patterns = siphon_patterns(contract_name, function_name, export_cfgs, verbose)
 
     # Optimize the resulting CFGs given the found patterns
-    optimized_cfgs = optimize_patterns(patterns, export_cfgs, verbose)
+    optimized_cfgs = optimize_patterns(filename, patterns, export_cfgs, verbose)
 
     # Generate the optimized function code
     generate_source_code(optimized_cfgs, filename, verbose)
@@ -60,13 +60,13 @@ def siphon_patterns(
     # maps the patterns per function per contract
     # the CFG provides an hash function that maps to the Contract and Function
     patterns_per_function = {}
-
     # If contract_name is not provided, execute for all functions inside all contracts
-    if contract_name is None:
+    if not contract_name:
         for (
             contract_name,
             functions,
         ) in slitherSingleton.get_functions_by_contract().items():
+            print(contract_name)
             contract = slitherSingleton.get_contract_by_name(contract_name)
             for function in functions:
                 cfg, patterns = analyse_function(
@@ -122,6 +122,7 @@ def analyse_function(
 
 
 def optimize_patterns(
+    filename: str,
     patterns: dict[CFG, list[Pattern]],
     export_cfgs: bool = False,
     verbose: bool = False,
@@ -136,7 +137,7 @@ def optimize_patterns(
     optimized_cfgs = []
 
     # init the Optimized module for debug or not
-    optimizerSingleton.init_instance(export_cfgs, verbose)
+    optimizerSingleton.init_instance(filename, export_cfgs, verbose)
 
     for cfg, patterns in patterns.items():
         if verbose:

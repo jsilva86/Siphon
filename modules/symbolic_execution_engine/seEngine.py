@@ -114,6 +114,9 @@ class SymbolicExecutionEngine:
         path_contraints: list,
         loop_scope: list,
     ):
+        if len(block.instructions) == 0:
+            return
+
         for instruction in block.instructions:
             traverse_additional_paths = self.evaluate_instruction(
                 block, instruction, symbolic_table, path_contraints, loop_scope
