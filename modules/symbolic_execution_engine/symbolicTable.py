@@ -121,7 +121,7 @@ class SymbolicTable:
         return (
             symbol.value
             if (symbol := self.get_symbol(symbol_name))
-            else Int(symbol_name)
+            else Int(str(symbol_name))
         )
 
     def get_symbols_by_scope(self, loop_scope: int) -> List[Symbol]:

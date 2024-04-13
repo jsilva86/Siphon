@@ -206,7 +206,11 @@ contract Test {
         for (uint256 i = 0; i < 100; i++) {
             s_list[val] = 3;
 
-            sum *= func_arg(val);
+            sum += func_arg(val);
+            
+            if (val > pure_func()) {
+                sum = 5;
+            }
 
             val += i;
         }

@@ -302,7 +302,7 @@ class PatternMatcher:
 
                     pruned_patterns.append(pattern)
 
-            if pattern.pattern_type == PatternType.EXPENSIVE_OPERATION_IN_LOOP:
+            elif pattern.pattern_type == PatternType.EXPENSIVE_OPERATION_IN_LOOP:
                 for variable_name, sanitized_variable_name in zip(
                     pattern.variables, pattern.sanitized_variables
                 ):
@@ -310,7 +310,7 @@ class PatternMatcher:
                         sanitized_variable_name
                     )
 
-                    # primitive types are never false positives
+                    # primitive types and methods are never false positives
                     if symbolic_variable.is_primitive():
                         continue
 
@@ -318,6 +318,10 @@ class PatternMatcher:
                     _, indexable_symbol_name = self.sanitize_variable_name(
                         variable_name
                     )
+
+                    # method over array
+                    if not indexable_symbol_name:
+                        continue
 
                     indexable_symbol = symbolic_table.get_symbol(indexable_symbol_name)
 
@@ -436,6 +440,7 @@ class PatternMatcher:
             for arg in expr.children():
                 if self.is_symbol_in_condition(arg, symbol):
                     return True
+            return False
         return expr == symbol.value
 
     def extract_function_info(self, function_call):

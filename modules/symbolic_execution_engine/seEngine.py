@@ -612,7 +612,7 @@ class SymbolicExecutionEngine:
             )
 
         # numeric values
-        if self.is_numeric(operand):
+        if self.is_numeric(str(operand)):
             return operand
 
         # list.length
