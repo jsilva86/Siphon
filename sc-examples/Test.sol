@@ -205,7 +205,7 @@ contract Test {
         uint256 val = 0;
         for (uint256 i = 0; i < 100; i++) {
             s_list[val] = 3;
-            
+
             sum *= func_arg(val);
 
             val += i;

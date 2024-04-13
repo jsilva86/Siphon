@@ -289,7 +289,6 @@ class PatternMatcher:
         in instructions following a pattern being detected
         """
         pruned_patterns = []
-        print(self._patterns)
         for pattern in self._patterns:
             if pattern.pattern_type == PatternType.LOOP_INVARIANT_OPERATION:
                 for arg in pattern.func_args:
@@ -299,6 +298,31 @@ class PatternMatcher:
                         continue
 
                     if symbol.loop_scope == pattern.current_scope:
+                        continue
+
+                    pruned_patterns.append(pattern)
+
+            if pattern.pattern_type == PatternType.EXPENSIVE_OPERATION_IN_LOOP:
+                for variable_name, sanitized_variable_name in zip(
+                    pattern.variables, pattern.sanitized_variables
+                ):
+                    symbolic_variable = symbolic_table.get_symbol(
+                        sanitized_variable_name
+                    )
+
+                    # primitive types are never false positives
+                    if symbolic_variable.is_primitive():
+                        continue
+
+                    # array and mapping accesses
+                    _, indexable_symbol_name = self.sanitize_variable_name(
+                        variable_name
+                    )
+
+                    indexable_symbol = symbolic_table.get_symbol(indexable_symbol_name)
+
+                    # if the key changed, prune the pattern
+                    if indexable_symbol.loop_scope == pattern.current_scope:
                         continue
 
                     pruned_patterns.append(pattern)
