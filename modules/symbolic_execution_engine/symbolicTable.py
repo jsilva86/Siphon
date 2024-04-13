@@ -28,7 +28,7 @@ class SymbolicTable:
         for scope in sorted_scopes:
             symbol_list = self._table[scope]
             symbols.extend(
-                f"Scope: {scope}, Symbol: {symbol.name}, Value: {symbol.value}, Type: {symbol.type}"
+                f"Scope: {scope}, Symbol: {symbol.name}, Value: {symbol.value}, Type: {symbol.type} SCOPE: {symbol.loop_scope}"
                 for symbol in symbol_list
             )
         return "\n".join(symbols)
@@ -70,13 +70,19 @@ class SymbolicTable:
             symbol.value = value if value is not None else Int(symbol_name)
 
             if loop_scope:
+                latest_scope = loop_scope[-1]
+                if symbol.loop_scope != latest_scope:
+                    self._table[symbol.loop_scope].remove(symbol)
+                    self._table[latest_scope].append(symbol)
+                    symbol.loop_scope = latest_scope
+
                 # assignment inside loop, update taint list
-                loop_bounded_symbols = self.get_symbols_by_scope(loop_scope[-1])
+                loop_bounded_symbols = self.get_symbols_by_scope(latest_scope)
 
                 for loop_bounded_symbol in loop_bounded_symbols:
                     if self.is_symbol_in_condition(value, loop_bounded_symbol):
                         symbol._tainted_by.append(symbol)
-                        symbol.taint_scope = loop_scope[-1]
+                        symbol.taint_scope = latest_scope
 
     def get_symbol(self, symbol_name: str) -> Symbol:
         # sourcery skip: remove-unnecessary-cast

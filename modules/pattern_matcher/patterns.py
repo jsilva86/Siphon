@@ -108,10 +108,13 @@ class ExpensiveOperationInLoopPattern(Pattern):
 
 
 class LoopInvariantOperationPattern(Pattern):
-    def __init__(self, block, instruction, function, func_call, current_scope):
+    def __init__(
+        self, block, instruction, function, func_call, func_args, current_scope
+    ):
         super().__init__(block, instruction, PatternType.LOOP_INVARIANT_OPERATION)
         self._functions = [function]
         self._func_calls = [func_call]
+        self._func_args = func_args
         self._current_scope = current_scope
 
     @property
@@ -123,6 +126,10 @@ class LoopInvariantOperationPattern(Pattern):
         return self._func_calls
 
     @property
+    def func_args(self):
+        return self._func_args
+
+    @property
     def current_scope(self):
         return self._current_scope
 
@@ -131,6 +138,7 @@ class LoopInvariantOperationPattern(Pattern):
         output += super().__str__()
         output += f"Functions: {[function.name for function in self.functions]}\n"
         output += f"Function calls: {list(self.func_calls)}\n"
+        output += f"Function args: {list(self.func_args)}\n"
         output += f"Current Scope: {self.current_scope}\n"
         return output
 

@@ -81,8 +81,8 @@ class SymbolicExecutionEngine:
         # start executing from the initial block
         self.execute_block(self.cfg.head, symbolic_table, path_constraints, loop_scope)
 
-        # check for false positives
-        self.pattern_matcher.remove_false_positives()
+        # check for false positives P1/P2
+        self.pattern_matcher.remove_false_positives_p1_p2()
 
         # export the patterns to a file
         self.export_patterns()
@@ -293,7 +293,6 @@ class SymbolicExecutionEngine:
     ):
         if not (parts := self.split_assignment(instruction.expression)):
             # TODO these might be func calls
-            print("Unable to resolve assignment", instruction)
             return
 
         variable, operation, assignment = parts
@@ -315,7 +314,6 @@ class SymbolicExecutionEngine:
             symbol = symbolic_table.get_symbol(variable)
             loop_scope = loop_scope[-1] if loop_scope else 0
             symbolic_table.push_symbol(variable, symbol.type, loop_scope)
-
             return
 
         # PATTERN 4: Expensive operations (WRITE) in a loop
@@ -389,6 +387,11 @@ class SymbolicExecutionEngine:
         path_contraints: list,
         loop_scope: list,
     ):
+        # prune false positives from candidates
+        self.pattern_matcher.remove_changed_after_detected_false_positives(
+            symbolic_table
+        )
+
         # pop the current scope
         loop_scope.pop()
 
@@ -469,8 +472,7 @@ class SymbolicExecutionEngine:
 
                 var = re.sub(r"\([^()]*\)", "", split[0].strip())
                 operation = str(ir.expression)
-
-                operations[var] = operation
+                operations[var] = Int(operation)
                 continue
 
             split = str_ir.split("=", 1)
@@ -703,8 +705,9 @@ class SymbolicExecutionEngine:
 
         # find all the tokens in the expressions
         # operations, constants, variables, function calls, lib calls and methods "." (dot)
+        # hex numbers
         tokens = re.findall(
-            r"\d+|\w+\[[^\]]*\].?\w*|\w+\([^\)]*\)|\w+.?\w+\([^\)]*\)|\w+.?\w*|[+\-*/%]",
+            r"0x.*|\d+|\w+\[[^\]]*\].?\w*|\w+\([^\)]*\)|\w+.?\w+\([^\)]*\)|\w+.?.*|[+\-*/%]",
             expression,
         )
 

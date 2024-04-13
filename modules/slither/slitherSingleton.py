@@ -35,7 +35,12 @@ class SlitherSingleton:
         Returns:
             list(contracts): List of Contracts
         """
-        return self.slither.contracts
+        return list(
+            filter(
+                lambda contract: not contract.is_library and not contract.is_interface,
+                self.slither.contracts,
+            )
+        )
 
     def get_contract_by_name(self, contract_name: str) -> Contract:
         """Returns contract with given name

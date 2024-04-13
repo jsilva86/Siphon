@@ -1,6 +1,6 @@
 import os
-
 from typing import Dict
+from random import randint
 
 from slither.core.declarations import Function, Contract
 from slither.core.cfg.node import NodeType, Node
@@ -35,6 +35,9 @@ class CFG:
         self._export_cfg: bool = export_cfg
 
     def __hash__(self):
+        # safeguard for older contracts
+        if not self.contract.id or not self.function.id:
+            return randint(0, 10000)
         return hash(self.contract.id + self.function.id)
 
     @property
@@ -263,17 +266,19 @@ class CFG:
         # FIXME this is not always needed
         init_node = node.fathers[0]  # int i = 0
 
+        loop_block = self.create_new_block(current_block, False, node)
+
         # add instructions to current block
-        current_block.add_instruction(node)
-        current_block.add_instruction(init_node)
+        loop_block.add_instruction(node)
+        loop_block.add_instruction(init_node)
 
         # add current loops
-        true_path_loop_depth.append(current_block)
-        false_path_loop_depth.append(current_block)
+        true_path_loop_depth.append(loop_block)
+        false_path_loop_depth.append(loop_block)
 
         self.build_cfg_recursive(
             node.sons[0],
-            current_block,
+            loop_block,
             is_false_path,
             true_path_loop_depth,
             false_path_loop_depth,

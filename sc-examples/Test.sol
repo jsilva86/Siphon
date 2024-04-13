@@ -199,4 +199,18 @@ contract Test {
 
         return sum;
     }
+
+    function func8() public returns (uint256) {
+        uint256 sum = 0;
+        uint256 val = 0;
+        for (uint256 i = 0; i < 100; i++) {
+            s_list[val] = 3;
+            
+            sum *= func_arg(val);
+
+            val += i;
+        }
+
+        return sum;
+    }
 }

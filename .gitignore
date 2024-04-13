@@ -128,10 +128,12 @@ dmypy.json
 
 /output
 node_modules
-package-lock.json~
+package-lock.json
 
 /dataset
 
 /artifacts
 
 /cache
+
+/filtered

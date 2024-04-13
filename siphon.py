@@ -66,7 +66,6 @@ def siphon_patterns(
             contract_name,
             functions,
         ) in slitherSingleton.get_functions_by_contract().items():
-            print(contract_name)
             contract = slitherSingleton.get_contract_by_name(contract_name)
             for function in functions:
                 cfg, patterns = analyse_function(

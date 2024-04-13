@@ -195,7 +195,7 @@ class PatternMatcher:
             )
 
             pattern = LoopInvariantOperationPattern(
-                block, instruction, function, function_call, loop_scope[-1]
+                block, instruction, function, function_call, func_args, loop_scope[-1]
             )
 
             if not existing_pattern:
@@ -247,7 +247,7 @@ class PatternMatcher:
             if not self.is_duplicate_pattern(block, instruction):
                 self._patterns.append(pattern)
 
-    def remove_false_positives(self):
+    def remove_false_positives_p1_p2(self):
         """
         Some False Positives are only detectable after the analysis is done
 
@@ -276,6 +276,37 @@ class PatternMatcher:
                 self._patterns,
             )
         )
+
+    def remove_changed_after_detected_false_positives(
+        self, symbolic_table: SymbolicTable
+    ):
+        """
+        Sphon greedly flags False Positives without taking into consideration that a symbol can change
+        after it analysis a pattern's instruction
+
+        Such is the case for mappings keys or func args, which can be tainted after a pattern is flagged
+        After a loop concludes, verify if the detected patterns do not contain symbols that have been tainted
+        in instructions following a pattern being detected
+        """
+        pruned_patterns = []
+        print(self._patterns)
+        for pattern in self._patterns:
+            if pattern.pattern_type == PatternType.LOOP_INVARIANT_OPERATION:
+                for arg in pattern.func_args:
+                    symbol = symbolic_table.get_symbol(arg)
+                    if symbol == None:
+                        pruned_patterns.append(pattern)
+                        continue
+
+                    if symbol.loop_scope == pattern.current_scope:
+                        continue
+
+                    pruned_patterns.append(pattern)
+
+            else:
+                pruned_patterns.append(pattern)
+
+        self._patterns = pruned_patterns
 
     def is_duplicate_pattern(self, block: Block, instruction: Node):
         """
@@ -345,7 +376,8 @@ class PatternMatcher:
             ):
                 return True
 
-            if symbolic_indexable_part := symbolic_table.get_symbol(indexable_part):
+            symbolic_indexable_part = symbolic_table.get_symbol(indexable_part)
+            if symbolic_indexable_part and loop_scope:
                 # if the key was declared or tainted in the current scope,
                 # then it's a false positive and should not be reported
                 return (
