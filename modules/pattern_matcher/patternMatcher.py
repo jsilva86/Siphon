@@ -254,10 +254,7 @@ class PatternMatcher:
         Such is the case for P1/P2: a branch is only "really" unreachable,
         if no path is able to reach it OR is "always" reachable if all branches reach it
 
-
         """
-
-        # TODO extend this function to other patterns if needed
 
         # if a block is reachable via at least one path, then it's a false positive P1
         # if a block is NOT reachable via at least one path, then it's a false positive P2
@@ -291,18 +288,20 @@ class PatternMatcher:
         pruned_patterns = []
         for pattern in self._patterns:
             if pattern.pattern_type == PatternType.LOOP_INVARIANT_OPERATION:
+                false_positive = False
                 for arg in pattern.func_args:
                     symbol = symbolic_table.get_symbol(arg)
                     if symbol == None:
-                        pruned_patterns.append(pattern)
                         continue
 
                     if symbol.loop_scope == pattern.current_scope:
-                        continue
+                        false_positive = True
 
+                if not false_positive:
                     pruned_patterns.append(pattern)
 
             elif pattern.pattern_type == PatternType.EXPENSIVE_OPERATION_IN_LOOP:
+                false_positive = False
                 for variable_name, sanitized_variable_name in zip(
                     pattern.variables, pattern.sanitized_variables
                 ):
@@ -327,10 +326,27 @@ class PatternMatcher:
 
                     # if the key changed, prune the pattern
                     if indexable_symbol.loop_scope == pattern.current_scope:
-                        continue
+                        false_positive = True
 
+                if not false_positive:
                     pruned_patterns.append(pattern)
 
+            elif pattern.pattern_type == PatternType.LOOP_INVARIANT_CONDITION:
+                # get symbols in the current scope
+                loop_bounded_symbols = symbolic_table.get_symbols_by_scope(
+                    pattern.current_scope
+                )
+
+                # check if any of the symbols bounded to this scope are in the condition
+                if any(
+                    self.is_symbol_in_condition(pattern.condition, symbol)
+                    for symbol in loop_bounded_symbols
+                ) or self.are_arguments_loop_bounded(
+                    pattern.condition, loop_bounded_symbols
+                ):
+                    continue
+
+                pruned_patterns.append(pattern)
             else:
                 pruned_patterns.append(pattern)
 
@@ -438,7 +454,9 @@ class PatternMatcher:
     def is_symbol_in_condition(self, expr, symbol):
         if isinstance(expr, (ArithRef, BoolRef)):
             for arg in expr.children():
-                if self.is_symbol_in_condition(arg, symbol):
+                if self.is_symbol_in_condition(arg, symbol) or str(arg) == str(
+                    symbol.name
+                ):
                     return True
             return False
         return expr == symbol.value
