@@ -148,7 +148,7 @@ contract Test {
     ) public view returns (uint256, bool) {
         uint256 min_length = 10;
         uint256 sum = 0;
-        //uint256 i;
+
         for (uint256 i = 0; i < s_list.length; i++) {
             if (list.length > min_length + pure_func()) {
                 sum += i;
@@ -157,7 +157,7 @@ contract Test {
             if (list.length + list[i] > min_length + func_arg(i)) {
                 sum += i;
             }
-            if (s_list.length > min_length + i) {
+            if (i > min_length) {
                 sum -= i;
             }
         }
