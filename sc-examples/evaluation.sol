@@ -5,7 +5,7 @@ pragma solidity >=0.8.0;
 contract Evaluation {
     uint256 minThreshold = 5;
     uint256 maxThreshold = 10;
-    uint256 scalingFactor = 2;
+    uint256 scalingFactor = maxThreshold / minThreshold;
     uint256 offset = 2;
     bool public Error;
 
