@@ -707,7 +707,7 @@ class SymbolicExecutionEngine:
         # operations, constants, variables, function calls, lib calls and methods "." (dot)
         # hex numbers
         tokens = re.findall(
-            r"0x.*|\d+|\w+\[[^\]]*\].?\w*|\w+\([^\)]*\)|\w+.?\w+\([^\)]*\)|\w+.?.*|[+\-*/%]",
+            r"0x.*|\d+|\w+\[[^\]]*\].?\w*|\w+\([^\)]*\)|\w+.?\w+\([^\)]*\)|\w+\.?\S*|[+\-*/%]",
             expression,
         )
 

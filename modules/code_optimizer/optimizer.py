@@ -143,6 +143,8 @@ class Optimizer:
 
         # the false path is now the true path, IF it exists
         if pattern.block.false_path:
+            # traverse tree and find corresponding ENDIF and remove it.
+            self.remove_trailing_end_if(pattern.block.false_path)
             pattern.block.true_path = pattern.block.false_path
             pattern.block.false_path = None
 
@@ -187,9 +189,9 @@ class Optimizer:
                 placeholder_variable_name, block_of_scope
             ):
                 # store placeholder variable and its scope
-                self._placeholder_variables[
-                    placeholder_variable_name
-                ] = block_of_scope.id
+                self._placeholder_variables[placeholder_variable_name] = (
+                    block_of_scope.id
+                )
 
                 # extract the value of Storage to Memory
                 assignment = self.generate_storage_access(
@@ -246,9 +248,9 @@ class Optimizer:
 
             if self.should_generate_instructions(func_name, block_of_scope):
                 # store placeholder variable and its scope
-                self._placeholder_variables[
-                    placeholder_variable_name
-                ] = block_of_scope.id
+                self._placeholder_variables[placeholder_variable_name] = (
+                    block_of_scope.id
+                )
 
                 assignment = self.generate_func_call(
                     return_type, func_call, placeholder_variable_name
