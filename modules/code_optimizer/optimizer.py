@@ -154,7 +154,7 @@ class Optimizer:
         pattern.block._instructions.pop()
 
         # traverse tree and find corresponding ENDIF and remove it.
-        self.remove_trailing_end_if(pattern.block)
+        # self.remove_trailing_end_if(pattern.block)
 
         # since it's a tautology the nagation will never be executed
         # remove the branch if it exists
@@ -649,7 +649,13 @@ class Optimizer:
 
         current_block = starting_block
 
+        print("ENTREI AQUI", current_block)
+
         while True:
+            if not current_block:
+                return
+
+            print("ITER CURR", current_block)
             # handle nested IFs
             if current_block._instructions:
                 if current_block._instructions[-1].type == NodeType.IF:

@@ -31,3 +31,22 @@ contract EvaluationPattern1 {
         }
     }
 }
+
+contract EvaluationPattern2 {
+    uint256 amount = 15;
+    uint256 interest = 2;
+    uint256 balance;
+    bool public Error;
+
+    function pattern2() public {
+        if (balance > amount * interest) {
+            balance -= amount * interest;
+
+            if (balance > 0) {
+                Error = false;
+            } else {
+                Error = true;
+            }
+        }
+    }
+}
