@@ -154,7 +154,7 @@ class Optimizer:
         pattern.block._instructions.pop()
 
         # traverse tree and find corresponding ENDIF and remove it.
-        # self.remove_trailing_end_if(pattern.block)
+        self.remove_trailing_end_if(pattern.block)
 
         # since it's a tautology the nagation will never be executed
         # remove the branch if it exists

@@ -39,14 +39,17 @@ contract EvaluationPattern2 {
     bool public Error;
 
     function pattern2() public {
-        if (balance > amount * interest) {
-            balance -= amount * interest;
+        uint256 tentativeBalance = balance;
+        if (tentativeBalance > amount * interest) {
+            tentativeBalance -= amount * interest;
 
-            if (balance > 0) {
+            if (tentativeBalance > 0) {
                 Error = false;
             } else {
                 Error = true;
             }
+
+            balance = tentativeBalance;
         }
     }
 }
