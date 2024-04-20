@@ -434,6 +434,9 @@ class Optimizer:
         """
         write_back_instruction = SiphonNode(pattern.instruction, write_back)
 
+        if not block_of_scope._false_path:
+            block_of_scope._false_path = Block()
+
         # insert write-back after loop in block (false path)
         block_of_scope._false_path._instructions = [
             write_back_instruction
@@ -648,8 +651,6 @@ class Optimizer:
         if_depth = 1
 
         current_block = starting_block
-
-        print("ENTREI AQUI", current_block)
 
         while True:
             if not current_block:
