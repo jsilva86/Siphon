@@ -53,3 +53,28 @@ contract EvaluationPattern2 {
         }
     }
 }
+
+contract EvaluationPattern4 {
+    uint256 numberOfTransactions;
+    address[] userList;
+    mapping(address => uint256) usersBalance;
+    address smallestBalanceIndex;
+
+    function pattern4(uint256 transactionAmount) public {
+       for(uint256 i = 0; i < userList.length; i++) {
+            numberOfTransactions++;
+
+            address userAddress = userList[i];
+
+            usersBalance[userAddress] += transactionAmount;
+
+            if (usersBalance[userAddress] < usersBalance[smallestBalanceIndex]) {
+                smallestBalanceIndex = userAddress;
+            }
+       }
+
+       for(uint256 i = 0; i < userList.length; i++) { 
+            usersBalance[smallestBalanceIndex] += transactionAmount * 2;
+       }
+    }
+}

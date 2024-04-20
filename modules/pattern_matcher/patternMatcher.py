@@ -501,7 +501,7 @@ class PatternMatcher:
     def are_arguments_loop_bounded(
         self, condition, loop_bounded_symbols: list["Symbol"]
     ):
-        variables_to_check = [str(symbol.value) for symbol in loop_bounded_symbols]
+        variables_to_check = [str(symbol.name) for symbol in loop_bounded_symbols]
         return re.search(
             r"[\(\[].*\b(?:" + "|".join(variables_to_check) + r")\b.*[\)\]]",
             str(condition),
