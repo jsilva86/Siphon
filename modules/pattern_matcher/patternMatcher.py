@@ -325,7 +325,10 @@ class PatternMatcher:
                     indexable_symbol = symbolic_table.get_symbol(indexable_symbol_name)
 
                     # if the key changed, prune the pattern
-                    if indexable_symbol.loop_scope == pattern.current_scope:
+                    if (
+                        indexable_symbol
+                        and indexable_symbol.loop_scope == pattern.current_scope
+                    ):
                         false_positive = True
 
                 if not false_positive:

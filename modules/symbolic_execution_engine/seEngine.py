@@ -711,15 +711,31 @@ class SymbolicExecutionEngine:
         # find all the tokens in the expressions
         # operations, constants, variables, function calls, lib calls and methods "." (dot)
         # hex numbers
+        # whitespace separated strings
         tokens = re.findall(
-            r"0x.*|\d+|\w+\[[^\]]*\].?\w*|\w+\([^\)]*\)|\w+.?\w+\([^\)]*\)|\w+\.?\S*|[+\-*/%]",
+            r"0x.*|\d+|\w+(?:\s+\w+)+|\w+\[[^\]]*\].?\w*|\w+\([^\)]*\)|\w+.?\w+\([^\)]*\)|\w+\.?\S*|\*{2}|[+\-*/%]",
             expression,
         )
 
         # convert all tokens to their correct format
-        for token in tokens:
+        for index, token in enumerate(tokens):
             token = token.strip()
-            if token in ["+", "-", "*", "/", "%"]:
+            if token == "**":
+                # spread the operation
+                exponent = int(tokens[index + 1])
+                base = tokens[index - 1]
+                for _ in range(exponent - 1):
+                    result_list.append("*")
+                    result_list.append(float(base))
+                result_list.append("*")
+                tokens[index + 1] = base
+            elif token in [
+                "+",
+                "-",
+                "*",
+                "/",
+                "%",
+            ]:
                 result_list.append(token)
             elif self.is_numeric(token):
                 result_list.append(RealVal(token))

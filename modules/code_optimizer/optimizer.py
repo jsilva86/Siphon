@@ -361,9 +361,13 @@ class Optimizer:
             # FIXME: safeguard for direct assignments to arrays
             return new_variable_name
 
-        new_variable_name += f"_{indexable_part}"
+        new_variable_name += f"_{self.sanitize_variable(indexable_part)}"
 
         return new_variable_name
+
+    def sanitize_variable(self, variable: str):
+        # in case of expressions, remove operators, numbers and whitespaces
+        return re.sub(r"[^a-zA-Z]", "", variable)
 
     def should_generate_instructions(self, variable_name: str, start_block: Block):
         """
@@ -656,7 +660,6 @@ class Optimizer:
             if not current_block:
                 return
 
-            print("ITER CURR", current_block)
             # handle nested IFs
             if current_block._instructions:
                 if current_block._instructions[-1].type == NodeType.IF:

@@ -73,7 +73,7 @@ class CodeGenerator:
         # function func_name(params) visibilityModifier stateMutabilityModifier returns (returnType) {
         func_declaration = f"function {func_name} {func_args} {visibility} {stateMutability} {return_types} {{"
 
-        file.write(func_declaration)
+        file.write(func_declaration + "\n")
 
     def generate_function_args(self):
         if not self.cfg.function.parameters:
@@ -124,7 +124,9 @@ class CodeGenerator:
                 false_queue
                 and reached_end_if
                 and not (
-                    current_block and current_block.true_path.id == false_queue[-1].id
+                    current_block
+                    and current_block.true_path
+                    and current_block.true_path.id == false_queue[-1].id
                 )
             ):
                 # else branch exists
@@ -165,15 +167,15 @@ class CodeGenerator:
 
                     if instruction.type in [NodeType.ENDIF, NodeType.ENDLOOP]:
                         reached_end_if = True
-                        file.write("}")
+                        file.write("}\n")
                         continue
 
                     source_line = get_source_line_from_node(self.filename, instruction)
-                    file.write(source_line)
+                    file.write(source_line + "\n")
 
                 else:
                     # Siphon Nodes are only referenced once
-                    file.write(str(instruction))
+                    file.write(str(instruction) + "\n")
 
             if current_block.false_path:
                 false_queue.append(current_block.false_path)
