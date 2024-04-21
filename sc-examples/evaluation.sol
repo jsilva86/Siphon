@@ -94,9 +94,32 @@ contract EvaluationPattern5 {
     function pattern5(uint256 amount) public {
        for(uint256 i = 0; i < userList.length; i++) {
             address userAddress = userList[i];
-           if (validAddress(userAddress)) {
+            if (validAddress(userAddress)) {
                 usersBalance[userAddress] += interest(amount);
-           }
+            }
+       }    
+    }
+}
+
+contract EvaluationPattern6 {
+    address[] userList;
+    mapping(address => uint256) usersBalance;
+
+    function adjustedMinThreshold(uint256 amount) public pure returns (uint256) {
+        return (amount) / (amount + 100);
+    }
+
+    function pattern6(uint256 amount) public {
+       for(uint256 i = 0; i < userList.length; i++) {
+            address userAddress = userList[i];
+            uint256 value;
+            if (amount < adjustedMinThreshold(amount)) {
+                value = amount;
+            } else {
+                value = 100;
+            }
+
+            usersBalance[userAddress] += value;
        }    
     }
 }

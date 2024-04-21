@@ -48,25 +48,31 @@ class SlitherSingleton:
         Returns:
             contract: Contract
         """
-        return list(
+        contracts = list(
             filter(
                 lambda contract: contract.name == contract_name, self.get_contracts()
             )
-        )[
-            0
-        ]  # assume unique contract names
-        # TODO exit if contract not found
+        )
+
+        if contracts:
+            return contracts[0]  # assume unique contract name
+
+        print("[*] - Contract not found...\n")
+        exit()
 
     def get_function_by_name(self, contract_name: str, function_name: str):
-        return list(
+        functions = list(
             filter(
                 lambda function: function.name == function_name,
                 self.get_all_functions_in_contract(contract_name),
             )
-        )[
-            0
-        ]  # assume unique function names
-        # TODO exit if function not found
+        )
+
+        if functions:
+            return functions[0]  # only one function with the given name
+
+        print("[*] - Function not found...\n")
+        exit()
 
     def get_all_functions_in_contract(self, contract_name: str) -> List["Function"]:
         return self.get_functions_by_contract().get(contract_name, [])
