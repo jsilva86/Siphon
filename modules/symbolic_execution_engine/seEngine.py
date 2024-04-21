@@ -249,6 +249,11 @@ class SymbolicExecutionEngine:
         if_operation = self.build_if_operation(
             block, instruction, symbolic_table, loop_scope
         )
+
+        # if(something) --> if(something == true)
+        if isinstance(if_operation, ArithRef):
+            if_operation = if_operation != 0
+
         if_not_operation = Not(if_operation)
 
         # PATTERN 1: Redundant code

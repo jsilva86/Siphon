@@ -78,3 +78,25 @@ contract EvaluationPattern4 {
        }
     }
 }
+
+contract EvaluationPattern5 {
+    address[] userList;
+    mapping(address => uint256) usersBalance;
+
+    function validAddress(address userAddress) public pure returns (bool) {
+        return true;
+    }
+
+    function interest(uint256 amount) public pure returns (uint256) {
+        return amount * 2;
+    }
+
+    function pattern5(uint256 amount) public {
+       for(uint256 i = 0; i < userList.length; i++) {
+            address userAddress = userList[i];
+           if (validAddress(userAddress)) {
+                usersBalance[userAddress] += interest(amount);
+           }
+       }    
+    }
+}
