@@ -39,7 +39,9 @@ def main() -> None:
     slitherSingleton.init_slither_instance(filename)
 
     # Build CFG and find patterns
-    patterns = siphon_patterns(contract_name, function_name, export_cfgs, verbose)
+    patterns = siphon_patterns(
+        filename, contract_name, function_name, export_cfgs, verbose
+    )
 
     # Optimize the resulting CFGs given the found patterns
     optimized_cfgs = optimize_patterns(filename, patterns, export_cfgs, verbose)
@@ -49,7 +51,11 @@ def main() -> None:
 
 
 def siphon_patterns(
-    contract_name=None, function_name=None, export_cfgs=False, verbose=False
+    filename: str,
+    contract_name=None,
+    function_name=None,
+    export_cfgs=False,
+    verbose=False,
 ) -> dict[CFG, list[Pattern]]:
     """
     Returns the mapped patterns per function in each contract
@@ -69,7 +75,7 @@ def siphon_patterns(
             contract = slitherSingleton.get_contract_by_name(contract_name)
             for function in functions:
                 cfg, patterns = analyse_function(
-                    contract, function, export_cfgs, verbose
+                    filename, contract, function, export_cfgs, verbose
                 )
                 patterns_per_function[cfg] = patterns
 
@@ -77,7 +83,9 @@ def siphon_patterns(
     elif not function_name:
         contract = slitherSingleton.get_contract_by_name(contract_name)
         for function in slitherSingleton.get_all_functions_in_contract(contract_name):
-            cfg, patterns = analyse_function(contract, function, export_cfgs, verbose)
+            cfg, patterns = analyse_function(
+                filename, contract, function, export_cfgs, verbose
+            )
             patterns_per_function[cfg] = patterns
 
             if verbose:
@@ -88,7 +96,9 @@ def siphon_patterns(
         contract = slitherSingleton.get_contract_by_name(contract_name)
         function = slitherSingleton.get_function_by_name(contract_name, function_name)
 
-        cfg, patterns = analyse_function(contract, function, export_cfgs, verbose)
+        cfg, patterns = analyse_function(
+            filename, contract, function, export_cfgs, verbose
+        )
         patterns_per_function[cfg] = patterns
 
     if verbose:
@@ -98,7 +108,11 @@ def siphon_patterns(
 
 
 def analyse_function(
-    contract: Contract, function: Function, export_cfgs=False, verbose=False
+    filename: str,
+    contract: Contract,
+    function: Function,
+    export_cfgs=False,
+    verbose=False,
 ):
     """
     Finds patterns in a function by constructing a CFG and executing SE on it
@@ -110,11 +124,11 @@ def analyse_function(
         print(f" - Function: {function.name}\n")
 
     # build the function's CFG
-    cfg = CFG(contract, function, export_cfgs)
+    cfg = CFG(filename, contract, function, export_cfgs)
     cfg.build_cfg()
 
     # perform SE on the CFG
-    se_engine = SymbolicExecutionEngine(cfg)
+    se_engine = SymbolicExecutionEngine(filename, cfg)
 
     # retrieve the found patterns
     return cfg, se_engine.find_patterns()

@@ -3,13 +3,18 @@
 pragma solidity >=0.8.0;
 
 contract EvaluationPattern1 {
-    uint256 minThreshold = 5;
-    uint256 maxThreshold = 10;
-    uint256 scalingFactor = maxThreshold / minThreshold;
-    uint256 offset = 2;
+    uint256 minThreshold;
+    uint256 maxThreshold;
+    uint256 scalingFactor;
+    uint256 offset;
     bool public Error;
 
     function pattern1(uint256 x) public {
+        minThreshold = 5;
+        maxThreshold = 10;
+        scalingFactor = maxThreshold / minThreshold;
+        offset = 2;
+
         uint256 y;
         uint256 z;
         if (minThreshold < x && x < maxThreshold) {

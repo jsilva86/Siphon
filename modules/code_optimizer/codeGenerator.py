@@ -46,7 +46,10 @@ class CodeGenerator:
     def generate_source_code(self):
         # Create the directory if it doesn't exist
         dir_path = os.path.join(
-            "output", self.cfg.contract.name, self.cfg.function.name
+            "output",
+            self.filename.replace(".sol", ""),
+            self.cfg.contract.name,
+            self.cfg.function.name,
         )
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)

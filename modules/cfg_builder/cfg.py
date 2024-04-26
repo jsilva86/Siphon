@@ -17,8 +17,11 @@ class CFG:
 
     """
 
-    def __init__(self, contract: Contract, function: Function, export_cfg=False):
+    def __init__(
+        self, filename: str, contract: Contract, function: Function, export_cfg=False
+    ):
         # pass along to other modules
+        self._filename: str = filename
         self._contract: Contract = contract
         self._function: Function = function
 
@@ -102,7 +105,7 @@ class CFG:
 
         if self.export_cfg:
             cfg_to_dot(
-                self.contract.name,
+                self._filename,
                 self.function.name,
                 self.function.name,
                 self.head,
@@ -331,9 +334,9 @@ class CFG:
 
             # found a loop
             if node.sons[0].type == NodeType.IFLOOP:
-                if is_false_path:
+                if is_false_path and false_path_loop_depth:
                     current_block.true_path = false_path_loop_depth.pop()
-                else:
+                elif true_path_loop_depth:
                     current_block.true_path = true_path_loop_depth.pop()
 
                 self.build_cfg_recursive(
@@ -417,7 +420,7 @@ def cfg_to_dot(dir: str, sub_dir: str, filename: str, starting_node: Block):
     """
 
     # Create the directory if it doesn't exist
-    dir_path = os.path.join("output", dir, sub_dir, "cfgs")
+    dir_path = os.path.join("output", dir.replace(".sol", ""), sub_dir, "cfgs")
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 

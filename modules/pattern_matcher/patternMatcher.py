@@ -412,6 +412,10 @@ class PatternMatcher:
             symbolic_variable = symbolic_table.get_symbol(sanitized_variable_name)
 
             # always a pattern
+            if not symbolic_variable:
+                return False
+            
+            
             if symbolic_variable.is_primitive():
                 return True
 

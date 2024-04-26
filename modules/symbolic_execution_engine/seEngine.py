@@ -16,7 +16,9 @@ from modules.pattern_matcher.patternMatcher import PatternMatcher
 
 
 class SymbolicExecutionEngine:
-    def __init__(self, cfg: CFG):
+    def __init__(self, filename: str, cfg: CFG):
+        self._filename: str = filename
+
         # Pattern Matcher
         self._pattern_matcher: PatternMatcher = PatternMatcher()
 
@@ -50,15 +52,8 @@ class SymbolicExecutionEngine:
         for variable in self.cfg.retrieve_storage_variables():
             symbol_type = self.get_symbol_type(variable.type)
             # add the value to the symbolic table
+            # since these variables are global we can't assume their intialisation value will hold true when a function executes
             symbolic_table.push_symbol(variable.name, symbol_type)
-
-            # if the variable is initialised store its value
-            if variable.expression:
-                symbolic_value = self.build_symbolic_value(
-                    str(variable.expression), symbolic_table
-                )
-
-                symbolic_table.update_symbol(variable.name, symbolic_value)
 
     def find_patterns(self):
         """Entrypoint for the Symbolic execution
@@ -92,7 +87,10 @@ class SymbolicExecutionEngine:
 
     def export_patterns(self):
         dir_path = os.path.join(
-            "output", self.cfg.contract.name, self.cfg.function.name
+            "output",
+            self._filename.replace(".sol", ""),
+            self.cfg.contract.name,
+            self.cfg.function.name,
         )
 
         if not os.path.exists(dir_path):
@@ -713,7 +711,7 @@ class SymbolicExecutionEngine:
         # hex numbers
         # whitespace separated strings
         tokens = re.findall(
-            r"0x.*|\d+|\w+(?:\s+\w+)+|\w+\[[^\]]*\].?\w*|\w+\([^\)]*\)|\w+.?\w+\([^\)]*\)|\w+\.?\S*|\*{2}|[+\-*/%]",
+            r"0x.*|\d+|\w+(?:\s+\w+)+|\w+(?:\[.*?\])+.?\w*|\w+\([^\)]*\)|\w+.?\w+\([^\)]*\)|\w+\.?\S*|\*{2}|[+\-*/%]",
             expression,
         )
 
@@ -722,6 +720,9 @@ class SymbolicExecutionEngine:
             token = token.strip()
             if token == "**":
                 # spread the operation
+                if index + 1 == len(tokens):
+                    break
+
                 exponent = int(tokens[index + 1])
                 base = tokens[index - 1]
                 for _ in range(exponent - 1):
@@ -768,6 +769,10 @@ class SymbolicExecutionEngine:
         # Apply the operations in the list
         for i in range(1, len(result_list), 2):
             operator = result_list[i]
+
+            if i + 1 == len(result_list):
+                break
+
             value = result_list[i + 1]
             if operator == "+":
                 result += value
