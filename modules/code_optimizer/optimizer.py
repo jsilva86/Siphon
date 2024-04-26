@@ -398,14 +398,14 @@ class Optimizer:
         return True
 
     def should_generate_write_back(self, variable_type: Type, variable_name: str):
-        # TODO: hardcoded to work for array.<method>
-        # ideally would only write-back when needed
+        if self.is_method_over_array(variable_name):
+            return False
+
         if self.is_primitive_type(variable_type) or self.is_mapping_type(variable_type):
             return True
 
         indexable_part = self.get_indexable_part(variable_name)
 
-        # array/ array.<method>
         return bool(indexable_part)
 
     def push_assignment_to_block(
@@ -500,16 +500,14 @@ class Optimizer:
         placeholder_var_name: str,
     ):
         indexable_part = self.get_indexable_part(original_var_name)
+        if self.is_method_over_array(original_var_name):
+            # uint256 placeholder_var_name = original_var_name
+            return f"uint256 {placeholder_var_name} = {original_var_name};"
 
-        # direct assignment to array / array.<method>
+        # safeguard for direct assignments to arrays
+        # TODO maybe filter this out in patternMatcher
+        # <var_type>[] placeholder_var_name = sanitized_variable_name
         if not indexable_part:
-            if self.is_method_over_array(original_var_name):
-                # uint256 placeholder_var_name = original_var_name
-                return f"uint256 {placeholder_var_name} = {original_var_name};"
-
-            # safeguard for direct assignments to arrays
-            # TODO maybe filter this out in patternMatcher
-            # <var_type>[] placeholder_var_name = sanitized_variable_name
             return (
                 f"{str(variable_type)} {placeholder_var_name} = {sanitized_var_name};"
             )
@@ -529,6 +527,10 @@ class Optimizer:
 
         if not value_type:
             return
+
+        if self.is_method_over_array(original_var_name):
+            # uint256 placeholder_var_name = original_var_name
+            return f"uint256 {placeholder_var_name} = {original_var_name};"
 
         # <value_type> placeholder_var_name = original_var_name
         return f"{value_type} {placeholder_var_name} = {original_var_name};"
@@ -626,7 +628,8 @@ class Optimizer:
 
         Pattern matcher already filtered out all other methods
         """
-        return variable_name.split(".")[1] == "length"
+        split = variable_name.split(".")
+        return len(split) > 1 and split[-1].startswith("length")
 
     def get_array_type(self, variable_type: Type):
         return str(variable_type).split("[]")[0]
