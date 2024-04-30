@@ -161,14 +161,13 @@ class SymbolicExecutionEngine:
 
         false_path_constraint = traverse_additional_paths.get("false_path_constraint")
 
-        # fork both paths
-        new_symbolic_table = deepcopy(symbolic_table)
-        new_loop_scope = deepcopy(loop_scope)
-
         # store reachability information
         block._reachability.append(should_traverse_true_path)
 
         if should_traverse_true_path:
+            new_symbolic_table = deepcopy(symbolic_table)
+            new_loop_scope = deepcopy(loop_scope)
+
             new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(true_path_constraint)
             self.execute_block(
@@ -179,6 +178,9 @@ class SymbolicExecutionEngine:
             )
 
         if should_traverse_false_path and block.false_path:
+            new_symbolic_table = deepcopy(symbolic_table)
+            new_loop_scope = deepcopy(loop_scope)
+
             # else case is optional
             new_path_constraints = deepcopy(path_contraints)
             new_path_constraints.append(false_path_constraint)
