@@ -138,7 +138,13 @@ class CodeGenerator:
 
                 # loop false branches are not ELSE
                 if not is_loop_end:
-                    file.write("else {")
+                    if (
+                        current_block.instructions
+                        and current_block.instructions[0].type != NodeType.IF
+                    ):
+                        file.write("else {")
+                    else:
+                        file.write("else ")
 
             # process trailing false paths
             elif not queue and false_queue:
@@ -158,6 +164,7 @@ class CodeGenerator:
                 # for example, the "for loop" init, condition, and update.
                 # in those cases, the line only needs to be generated once
                 if isinstance(instruction, Node):
+                    print("AQUI", current_block, instruction, instruction.type)
                     # ignore loop init instruction, START LOOP label and loop increment
                     # IFLOOP instruction handles all of them
                     # modified for loops are inline by siphon nodes and trailing instructions are removed here
@@ -168,7 +175,18 @@ class CodeGenerator:
                     ) or instruction.type == NodeType.STARTLOOP:
                         continue
 
-                    if instruction.type in [NodeType.ENDIF, NodeType.ENDLOOP]:
+                    if instruction.type in [
+                        NodeType.ENDIF,
+                        NodeType.ENDLOOP,
+                        NodeType.RETURN,
+                    ]:
+                        # returns have an implicit closure end
+                        if instruction.type == NodeType.RETURN:
+                            source_line = get_source_line_from_node(
+                                self.filename, instruction
+                            )
+                            file.write(source_line + "\n")
+
                         reached_end_if = True
                         file.write("}\n")
                         continue

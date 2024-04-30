@@ -126,6 +126,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+/output/**/*.txt
 /output
 node_modules
 package-lock.json
@@ -137,3 +138,6 @@ package-lock.json
 /cache
 
 /filtered
+
+/compiled
+/sorted_by_patterns

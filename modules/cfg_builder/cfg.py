@@ -106,7 +106,7 @@ class CFG:
         if self.export_cfg:
             cfg_to_dot(
                 self._filename,
-                self.function.name,
+                self.contract.name,
                 self.function.name,
                 self.head,
             )
@@ -420,7 +420,9 @@ def cfg_to_dot(dir: str, sub_dir: str, filename: str, starting_node: Block):
     """
 
     # Create the directory if it doesn't exist
-    dir_path = os.path.join("output", dir.replace(".sol", ""), sub_dir, "cfgs")
+    dir_path = os.path.join(
+        "output", dir.replace(".sol", ""), sub_dir, filename, "cfgs"
+    )
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
