@@ -164,7 +164,6 @@ class CodeGenerator:
                 # for example, the "for loop" init, condition, and update.
                 # in those cases, the line only needs to be generated once
                 if isinstance(instruction, Node):
-                    print("AQUI", current_block, instruction, instruction.type)
                     # ignore loop init instruction, START LOOP label and loop increment
                     # IFLOOP instruction handles all of them
                     # modified for loops are inline by siphon nodes and trailing instructions are removed here
