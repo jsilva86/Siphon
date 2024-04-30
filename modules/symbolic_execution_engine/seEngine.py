@@ -490,6 +490,11 @@ class SymbolicExecutionEngine:
                 # Extract the TMP that stores the final value
                 key_to_final_value = match[1].strip()
 
+                if not key_to_final_value in operations:
+                    keys_list = list(operations.keys())
+                    if keys_list:
+                        return operations[keys_list[-1]]
+                    return Int(str(instruction))
                 return operations[key_to_final_value]
 
             # Extract the temporary variable being used to store and its value
@@ -535,10 +540,16 @@ class SymbolicExecutionEngine:
             if operator in ["&&", "||", "!"]:
                 # boolean operation
                 if operator == "!":
-                    # Not case only has one operand, the second one
-                    operations[tmp_var] = fn(second_operand)
+                    try:
+                        # Not case only has one operand, the second one
+                        operations[tmp_var] = fn(second_operand)
+                    except Z3Exception:
+                        operations[tmp_var] = second_operand
                 else:
-                    operations[tmp_var] = fn(first_operand, second_operand)
+                    try:
+                        operations[tmp_var] = fn(first_operand, second_operand)
+                    except Z3Exception:
+                        operations[tmp_var] = first_operand
             else:
                 # comparison operation
                 operations[tmp_var] = self.apply_comparison_operator(
@@ -557,8 +568,12 @@ class SymbolicExecutionEngine:
     ):  # sourcery skip: extract-duplicate-method
         # Split the expression based on the operator
         parts = operation.split(operator)
-        first_operand = parts[0].strip()
-        second_operand = parts[1].strip()
+        if len(parts) < 2:
+            first_operand = operation.strip()
+            second_operand = operation.strip()
+        else:
+            first_operand = parts[0].strip()
+            second_operand = parts[1].strip()
 
         # if the operand is a TMP, get its real value
         if self.is_temporary_operand(first_operand):
@@ -626,6 +641,7 @@ class SymbolicExecutionEngine:
     def get_operator(self, operation):
         # Handle comparison operators
         fn = None
+        operator = None
         if "<" in operation:
             operator = "<"
         elif ">" in operation:
@@ -659,6 +675,9 @@ class SymbolicExecutionEngine:
             ">=": lambda x, y: x >= y,
             "!=": lambda x, y: x != y,
         }
+
+        if not operator in operators:
+            return True
 
         return operators[operator](first_operand, second_operand)
 
@@ -724,8 +743,11 @@ class SymbolicExecutionEngine:
                 # spread the operation
                 if index + 1 == len(tokens):
                     break
+                try:
+                    exponent = int(tokens[index + 1])
+                except ValueError:
+                    exponent = 2
 
-                exponent = int(tokens[index + 1])
                 base = tokens[index - 1]
                 for _ in range(exponent - 1):
                     result_list.append("*")
@@ -768,24 +790,27 @@ class SymbolicExecutionEngine:
 
         result = result_list[0]
 
-        # Apply the operations in the list
-        for i in range(1, len(result_list), 2):
-            operator = result_list[i]
+        try:
+            # Apply the operations in the list
+            for i in range(1, len(result_list), 2):
+                operator = result_list[i]
 
-            if i + 1 == len(result_list):
-                break
+                if i + 1 == len(result_list):
+                    break
 
-            value = result_list[i + 1]
-            if operator == "+":
-                result += value
-            elif operator == "-":
-                result -= value
-            elif operator == "*":
-                result *= value
-            elif operator == "/":
-                result /= value
-            elif operator == "%":
-                result %= value
+                value = result_list[i + 1]
+                if operator == "+":
+                    result += value
+                elif operator == "-":
+                    result -= value
+                elif operator == "*":
+                    result *= value
+                elif operator == "/":
+                    result /= value
+                elif operator == "%":
+                    result %= value
+        except Z3Exception:
+            return Int(expression)
 
         # return the simplified results
         return simplify(result)

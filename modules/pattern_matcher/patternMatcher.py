@@ -414,8 +414,6 @@ class PatternMatcher:
             # always a pattern
             if not symbolic_variable:
                 return False
-            
-            
             if symbolic_variable.is_primitive():
                 return True
 
@@ -450,7 +448,7 @@ class PatternMatcher:
         """
 
         # TODO handle structs
-        if result := re.search(r"(\w+)\[(.*?)\]", name):
+        if result := re.search(r"(\w+)\[(.*?)\]", str(name)):
             return result[1], result[2]
 
         # ignore everything after "."
