@@ -73,7 +73,7 @@ class SymbolicTable:
                 latest_scope = loop_scope[-1]
                 if symbol.loop_scope != latest_scope:
                     self._table[symbol.loop_scope].remove(symbol)
-                    self._table[latest_scope].append(symbol)
+                    self._table.setdefault(latest_scope, []).append(symbol)
                     symbol.loop_scope = latest_scope
 
                 # assignment inside loop, update taint list

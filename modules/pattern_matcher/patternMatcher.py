@@ -500,8 +500,8 @@ class PatternMatcher:
         """
         In the case of array only handle array.length
         """
-
-        return variable_name.split(".")[1] == "length"
+        split = variable_name.split(".")
+        return len(split) > 1 and split[-1].startswith("length")
 
     def are_arguments_loop_bounded(
         self, condition, loop_bounded_symbols: list["Symbol"]

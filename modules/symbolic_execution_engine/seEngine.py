@@ -492,9 +492,13 @@ class SymbolicExecutionEngine:
 
                 if not key_to_final_value in operations:
                     keys_list = list(operations.keys())
-                    if keys_list:
-                        return operations[keys_list[-1]]
-                    return Int(str(instruction))
+                    if not keys_list:
+                        return Int(str(instruction))
+                    try:
+                        return Int(operations[keys_list[-1]])
+                    except Z3Exception:
+                        Int(str(instruction))
+
                 return operations[key_to_final_value]
 
             # Extract the temporary variable being used to store and its value
@@ -751,7 +755,10 @@ class SymbolicExecutionEngine:
                 base = tokens[index - 1]
                 for _ in range(exponent - 1):
                     result_list.append("*")
-                    result_list.append(float(base))
+                    try:
+                        result_list.append(float(base))
+                    except ValueError:
+                        result_list.append(1)
                 result_list.append("*")
                 tokens[index + 1] = base
             elif token in [

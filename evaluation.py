@@ -191,6 +191,7 @@ def successfully_executed():
 
     total_executed_smart_contracts = 0
     total_executed_functions = 0
+
     for index, file in enumerate(executed_files):
         print("Current File:", file, str(index) + "/" + str(len(executed_files)))
 
@@ -301,10 +302,10 @@ def count_patterns_and_optimized_functions():
 if __name__ == "__main__":
     # try_compile_and_move()
 
-    # contracts_and_functions()
+    contracts_and_functions()
 
     # exec_on_func_basis()
 
-    # successfully_executed()
+    successfully_executed()
 
-    count_patterns_and_optimized_functions()
+    # count_patterns_and_optimized_functions()
