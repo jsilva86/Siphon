@@ -3,8 +3,16 @@ import os
 import shutil
 from functools import reduce
 import subprocess
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor, wait, as_completed
 import re
+
+pattern_list = [
+    "REDUNDANT_CODE",
+    "OPAQUE_PREDICATE",
+    "EXPENSIVE_OPERATION_IN_LOOP",
+    "LOOP_INVARIANT_OPERATION",
+    "LOOP_INVARIANT_CONDITION",
+]
 
 
 def get_file_names(directory, suffix=None):
@@ -219,13 +227,6 @@ def successfully_executed():
 def count_patterns_and_optimized_functions():
     executed_files = get_directories("output/compiled")
     total_optimized_functions = 0
-    pattern_list = [
-        "REDUNDANT_CODE",
-        "OPAQUE_PREDICATE",
-        "EXPENSIVE_OPERATION_IN_LOOP",
-        "LOOP_INVARIANT_OPERATION",
-        "LOOP_INVARIANT_CONDITION",
-    ]
     occurrences_count = {pattern: 0 for pattern in pattern_list}
 
     sorted_by_patterns_dir = "sorted_by_patterns"
@@ -299,13 +300,141 @@ def count_patterns_and_optimized_functions():
     print(occurrences_count)
 
 
+def try_compile_and_move(file):
+    command = (
+        "npx prettier --plugin=prettier-plugin-solidity --ignore-path .prettierignore "
+        + file
+    )
+    process = subprocess.Popen(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, _ = process.communicate()
+    if process.returncode != 0:
+        return False
+
+    path = file.split(os.path.sep)
+    new_file_path = os.path.sep.join(path[1:])
+    os.makedirs(os.path.sep.join(["optimized_and_compiled"] + path[1:-1]))
+    path = os.path.join("optimized_and_compiled", new_file_path)
+
+    with open(path, "wb") as f:
+        f.write(stdout)
+        return True
+
+
+def compile_optimized():
+    pattern_dirs = get_directories("sorted_by_patterns")
+
+    optimized_and_compiled_dir = "optimized_and_compiled"
+    os.makedirs(optimized_and_compiled_dir, exist_ok=True)
+
+    for pattern in pattern_list:
+        os.makedirs(os.path.join(optimized_and_compiled_dir, pattern), exist_ok=True)
+
+    for pattern_dir in pattern_dirs:
+        pattern_path = os.path.join("sorted_by_patterns", pattern_dir)
+        optimized_files = get_directories(pattern_path)
+
+        for index, optimized_file in enumerate(optimized_files):
+            print(
+                "Current File",
+                optimized_file,
+                str(index + 1) + "/" + str(len(optimized_files) - 1),
+                pattern_dir,
+            )
+
+            optimized_file_path = os.path.join(pattern_path, optimized_file)
+            optimized_smart_contracts = get_directories(optimized_file_path)
+
+            for optimized_smart_contract in optimized_smart_contracts:
+                optimized_smart_contract_path = os.path.join(
+                    optimized_file_path, optimized_smart_contract
+                )
+                optimized_functions = get_directories(optimized_smart_contract_path)
+
+                for optimized_function in optimized_functions:
+                    optimized_function_path = os.path.join(
+                        optimized_smart_contract_path, optimized_function
+                    )
+
+                    optimized_function_file = get_file_names(
+                        optimized_function_path,
+                        "-optimized.sol",
+                    )
+
+                    if not optimized_function_file or not try_compile_and_move(
+                        optimized_function_file[0]
+                    ):
+                        continue
+
+                    path = optimized_function_path.split(os.path.sep)
+                    path = os.path.join(
+                        "sorted_by_patterns", os.path.sep.join(path[1:])
+                    )
+
+                    patterns_file = os.path.join(path, "patterns.txt")
+                    original_file = os.path.join(path, optimized_file + ".sol")
+
+                    dir = optimized_function_file[0].split(os.path.sep)
+                    new_dir = os.path.sep.join(dir[1:-1])
+                    dir = os.path.join("optimized_and_compiled", new_dir)
+
+                    shutil.copy(patterns_file, dir)
+                    shutil.copy(original_file, dir)
+
+    print("Counting...")
+    occurrences_count = {pattern: 0 for pattern in pattern_list}
+
+    for pattern_dir in pattern_dirs:
+        pattern_path = os.path.join("optimized_and_compiled", pattern_dir)
+        optimized_files = get_directories(pattern_path)
+
+        for index, optimized_file in enumerate(optimized_files):
+            optimized_file_path = os.path.join(pattern_path, optimized_file)
+            optimized_smart_contracts = get_directories(optimized_file_path)
+
+            for optimized_smart_contract in optimized_smart_contracts:
+                optimized_smart_contract_path = os.path.join(
+                    optimized_file_path, optimized_smart_contract
+                )
+                optimized_functions = get_directories(optimized_smart_contract_path)
+
+                for optimized_function in optimized_functions:
+                    optimized_function_path = os.path.join(
+                        optimized_smart_contract_path, optimized_function
+                    )
+
+                    patterns_file = get_file_names(optimized_function_path, ".txt")
+
+                    optimized_function_file = get_file_names(
+                        optimized_function_path,
+                        "-optimized.sol",
+                    )
+
+                    if not optimized_function_file or not patterns_file:
+                        continue
+
+                    with open(patterns_file[0], "r") as f:
+                        content = f.read()
+                        for pattern in pattern_list:
+                            matches = re.findall(pattern, content)
+                            occurrences_count[pattern] += len(matches)
+
+    print(
+        "Optimized + Compiled Patterns:",
+        occurrences_count,
+    )
+
+
 if __name__ == "__main__":
     # try_compile_and_move()
 
-    contracts_and_functions()
+    # contracts_and_functions()
 
     # exec_on_func_basis()
 
-    successfully_executed()
+    # successfully_executed()
 
     # count_patterns_and_optimized_functions()
+
+    compile_optimized()
