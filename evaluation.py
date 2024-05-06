@@ -427,14 +427,20 @@ def compile_optimized():
 
 
 if __name__ == "__main__":
-    # try_compile_and_move()
+    # to filter contracts that don't compile with Solidty version 0.8.0
+    try_compile_and_move()
 
-    # contracts_and_functions()
+    # gather dataset statistics
+    contracts_and_functions()
 
-    # exec_on_func_basis()
+    # exec Siphon on the dataset
+    exec_on_func_basis()
 
-    # successfully_executed()
+    # gather analysis statistics
+    successfully_executed()
 
-    # count_patterns_and_optimized_functions()
+    # count detected patterns
+    count_patterns_and_optimized_functions()
 
+    # count optimized patterns
     compile_optimized()
