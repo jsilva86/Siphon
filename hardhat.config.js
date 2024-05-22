@@ -6,12 +6,12 @@ require('hardhat-contract-sizer');
 
 module.exports = {
   solidity: {
-    version: "0.8.19",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-    },
+    version: "0.8.20",
+    // settings: {
+    //   optimizer: {
+    //     enabled: false,
+    //     runs: 200,
+    //   },
+    // },
   },
 };

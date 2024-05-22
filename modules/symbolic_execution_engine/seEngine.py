@@ -250,9 +250,17 @@ class SymbolicExecutionEngine:
             block, instruction, symbolic_table, loop_scope
         )
 
+        print(Int(str(None)))
+
         # if(something) --> if(something == true)
         if isinstance(if_operation, ArithRef):
-            if_operation = if_operation != 0
+            coersed_condition = Bool(str(if_operation))
+            return {
+                "should_traverse_true_path": True,
+                "should_traverse_false_path": True,
+                "true_path_constraint": coersed_condition,
+                "false_path_constraint": Not(coersed_condition),
+            }
 
         if_not_operation = Not(if_operation)
 
@@ -468,7 +476,6 @@ class SymbolicExecutionEngine:
                 # Extract the temporary variable being used to store and its value
                 var = re.sub(r"\([^()]*\)", "", split[0].strip())
                 operation = str(ir.expression)
-
                 operations[var] = operation
                 continue
 
@@ -479,6 +486,24 @@ class SymbolicExecutionEngine:
                 operation = str(ir.expression)
                 operations[var] = Int(operation)
                 continue
+
+            if "CONVERT" in str_ir:
+                split = str_ir.split("=", 1)
+                var = re.sub(r"\([^()]*\)", "", split[0].strip())
+
+                conversion = str_ir.split("CONVERT ", 1)
+                if conversion and len(conversion) == 2:
+                    parts = conversion[1].split(" to ", 1)
+
+                    value = parts[0]
+                    cast = parts[1]
+
+                    if cast == "address":
+                        operations[var] = Int(value)
+                        continue
+                    elif self.is_numeric(value):
+                        operations[var] = RealVal(value)
+                        continue
 
             split = str_ir.split("=", 1)
 

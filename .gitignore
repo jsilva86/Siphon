@@ -138,3 +138,4 @@ package-lock.json
 /compiled
 /sorted_by_patterns
 /optimized_and_compiled
+detection_sample*
