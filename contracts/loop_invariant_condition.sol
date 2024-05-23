@@ -767,24 +767,12 @@ contract MoonStaking is ERC1155Holder, Ownable, ReentrancyGuard {
         uint256[] memory tokenIds
     ) public nonReentrant {
         require(!depositPaused, "Deposit paused");
-        // require(stakingLaunched, "Staking is not launched yet");
-        // require(
-        //     (contractAddress != address(0) &&
-        //         contractAddress == address(ApeNft)) ||
-        //         contractAddress == address(TreasuryNft) ||
-        //         contractAddress == address(BreedingNft),
-        //     "Unknown contract or staking is not yet enabled for this NFT"
-        // );
         ContractTypes contractType = _contractTypes[contractAddress];
 
         Staker storage user = _stakers[_msgSender()];
         uint256 newYield = user.currentYield;
 
         for (uint256 i; i < tokenIds.length; i++) {
-            // require(
-            //     IERC721(contractAddress).ownerOf(tokenIds[i]) == _msgSender(),
-            //     "Not the owner of staking NFT"
-            // );
             // IERC721(contractAddress).safeTransferFrom(
             //     _msgSender(),
             //     address(this),
@@ -817,14 +805,6 @@ contract MoonStaking is ERC1155Holder, Ownable, ReentrancyGuard {
         uint256[] memory tokenIds
     ) public {
         require(!depositPaused, "Deposit paused");
-        // require(stakingLaunched, "Staking is not launched yet");
-        // require(
-        //     (contractAddress != address(0) &&
-        //         contractAddress == address(ApeNft)) ||
-        //         contractAddress == address(TreasuryNft) ||
-        //         contractAddress == address(BreedingNft),
-        //     "Unknown contract or staking is not yet enabled for this NFT"
-        // );
         ContractTypes contractType = _contractTypes[contractAddress];
         Staker storage user = _stakers[_msgSender()];
         uint256 newYield = user.currentYield;
@@ -833,10 +813,6 @@ contract MoonStaking is ERC1155Holder, Ownable, ReentrancyGuard {
         bool SP_cond_fe05160f = contractType == ContractTypes.APE;
         uint256 i;
         for (uint256 i; i < tokenIds.length; i++) {
-            // require(
-            //     IERC721(contractAddress).ownerOf(tokenIds[i]) == _msgSender(),
-            //     "Not the owner of staking NFT"
-            // );
             // IERC721(contractAddress).safeTransferFrom(
             //     _msgSender(),
             //     address(this),

@@ -100,7 +100,7 @@ describe("Expensive operation inside loop - length of array", function () {
   }
 });
 
-describe.only("Expensive operation inside loop - length of array - simple write", function () {
+describe("Expensive operation inside loop - length of array - simple write", function () {
   let Contract;
   let contract;
 
@@ -139,6 +139,65 @@ describe.only("Expensive operation inside loop - length of array - simple write"
       });
       const receiptOptimized = await txOptimized.wait();
       console.log(`Gas used for write_optimized with ${i} payees:`, receiptOptimized.gasUsed.toString());
+    });
+  }
+});
+
+describe.only("Expensive operation inside loop - write", function () {
+  let Contract;
+  let contract;
+
+  for (let i = 50; i <= 500; i += 50) {
+    it(`should estimate gas for _checkBurnAndTransfer with ${i} count`, async function () {
+      const [deployer] = await ethers.getSigners();
+  
+      // Deploy MockEthItem contract
+      const MockEthItem = await ethers.getContractFactory("MockEthItem");
+      const mockEthItem = await MockEthItem.deploy();
+      await mockEthItem.deployed();
+  
+      // Deploy WhereIsMyDragonTreasure contract with the address of the mock contract
+      const Contract = await ethers.getContractFactory("WhereIsMyDragonTreasure");
+      const contract = await Contract.deploy(mockEthItem.address, 1, 1, 1);
+      await contract.deployed();
+  
+      const address = deployer.address;
+      const objects = new Array(i).fill(0);
+      const amounts = new Array(i).fill(1);
+  
+      // Estimate gas for the optimized function
+      const gasEstimateOptimized = await contract.estimateGas._checkBurnAndTransfer(address, objects, amounts);
+      const txOptimized = await contract._checkBurnAndTransfer(address, objects, amounts, {
+          gasLimit: gasEstimateOptimized.add(ethers.BigNumber.from("1000000")),
+      });
+      const receiptOptimized = await txOptimized.wait();
+      console.log(`Gas used for _checkBurnAndTransfer with ${i} count:`, receiptOptimized.gasUsed.toString());
+    });
+
+    it(`should estimate gas for _checkBurnAndTransfer_optimized with ${i} count`, async function () {
+      const [deployer] = await ethers.getSigners();
+  
+      // Deploy MockEthItem contract
+      const MockEthItem = await ethers.getContractFactory("MockEthItem");
+      const mockEthItem = await MockEthItem.deploy();
+      await mockEthItem.deployed();
+  
+      // Deploy WhereIsMyDragonTreasure contract with the address of the mock contract
+      const Contract = await ethers.getContractFactory("WhereIsMyDragonTreasure");
+      const contract = await Contract.deploy(mockEthItem.address, 1, 1, 1);
+      await contract.deployed();
+  
+      const address = deployer.address;
+      const objects = new Array(i).fill(0);
+      const amounts = new Array(i).fill(1);
+  
+      // Estimate gas for the optimized function
+      const gasEstimateOptimized = await contract.estimateGas._checkBurnAndTransfer_optimized(address, objects, amounts);
+      const txOptimized = await contract._checkBurnAndTransfer_optimized(address, objects, amounts, {
+          gasLimit: gasEstimateOptimized.add(ethers.BigNumber.from("1000000")),
+      });
+      const receiptOptimized = await txOptimized.wait();
+      console.log(`Gas used for _checkBurnAndTransfer_optimized with ${i} count:`, receiptOptimized.gasUsed.toString());
     });
   }
 });

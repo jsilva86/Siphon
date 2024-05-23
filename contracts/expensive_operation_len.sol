@@ -621,9 +621,7 @@ contract PaymentSplitter is Context {
      * additional code to rescue erc20 tokens
      */
     function tokenRescue(IERC20 token) public {
-        // require(shares(msg.sender) > 0, "not a shareholder");
         uint256 amount = token.balanceOf(address(this));
-        // require(amount > 0, "no tokens to rescue");
         uint i;
         for (i = 0; i < _payees.length; i++) {
             tokenTransfer(
@@ -635,9 +633,7 @@ contract PaymentSplitter is Context {
     }
 
     function tokenRescue_optimized(IERC20 token) public {
-        // require(shares(msg.sender) > 0, "not a shareholder");
         uint256 amount = token.balanceOf(address(this));
-        // require(amount > 0, "no tokens to rescue");
         uint i;
         uint256 SP__payees_length = _payees.length;
         for (i = 0; i < SP__payees_length; i++) {

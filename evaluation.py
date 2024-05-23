@@ -872,47 +872,35 @@ def generate_optimized_charts():
     ]
     percent_saved = [3.12, 3.26, 3.31, 3.34, 3.36, 3.37, 3.38, 3.38, 3.39, 3.39]
 
-    # Calculate the width of the bars
     bar_width = 0.35
 
-    # Calculate the x-axis positions for the bars
     x = np.arange(len(elements))
 
     np.std(gas_used_normal)
 
-    # Plot
     plt.figure(figsize=(12, 6))
 
-    # Plot gas used by normal version
     bars1 = plt.plot(
         x,
         gas_used_normal,
         label="Original",
     )
 
-    # Plot gas used by optimized version
     bars2 = plt.plot(
         x,
         gas_used_optimized,
         label="Optimised",
     )
 
-    # Add x-axis labels
     plt.xlabel("Number of iterations")
     plt.ylabel("Gas Used")
 
-    # Add title
-    # plt.title("Gas used per number of iterations")
-
-    # Add x-axis ticks and labels
     plt.xticks(x, elements)
 
-    # Add legend
     plt.legend()
 
     plt.savefig("loop_invariant_optimisation.png", bbox_inches="tight", pad_inches=0.1)
 
-    # Data for gas usage
     iterations = [100, 200, 300, 400, 500]
     gas_tokenRescue = [66413, 108713, 151013, 193313, 235613]
     gas_tokenRescue_optimized = [55672, 87184, 118684, 150184, 181684]
@@ -923,7 +911,6 @@ def generate_optimized_charts():
         for original, optimized in zip(gas_tokenRescue, gas_tokenRescue_optimized)
     ]
 
-    # Plotting the lines for gas usage
     plt.figure(figsize=(10, 6))
     plt.plot(iterations, gas_tokenRescue, label="Original", marker="o")
     plt.plot(iterations, gas_tokenRescue_optimized, label="Optimised", marker="o")
@@ -940,13 +927,61 @@ def generate_optimized_charts():
             horizontalalignment="left",
         )
 
-    # Adding labels and title
     plt.xlabel("Number of iterations")
     plt.ylabel("Gas Used")
     plt.legend()
 
     plt.savefig(
         "expensive_operation_len_optimisation.png", bbox_inches="tight", pad_inches=0.1
+    )
+
+    iterations = [100, 200, 300, 400, 500]
+    gas_checkBurnAndTransfer = [304924, 556491, 808683, 1061499, 1314917]
+    gas_checkBurnAndTransfer_optimized = [
+        283278,
+        512945,
+        743237,
+        974153,
+        1205671,
+    ]
+
+    percentage_savings_prev = [
+        ((original - optimized) / original) * 100
+        for original, optimized in zip(
+            gas_checkBurnAndTransfer, gas_checkBurnAndTransfer_optimized
+        )
+    ]
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(iterations, gas_checkBurnAndTransfer, label="Original", marker="o")
+    plt.plot(
+        iterations,
+        gas_checkBurnAndTransfer_optimized,
+        label="Optimised",
+        marker="o",
+    )
+    plt.xlim(0, 550)
+
+    for x, y, percent in zip(
+        iterations, gas_checkBurnAndTransfer_optimized, percentage_savings_prev
+    ):
+        plt.text(
+            x,
+            y,
+            f"- {percent:.2f}%",
+            fontsize=12,
+            verticalalignment="top",
+            horizontalalignment="left",
+        )
+
+    plt.xlabel("Number of iterations")
+    plt.ylabel("Gas Used")
+    plt.legend()
+
+    plt.savefig(
+        "expensive_operation_write_optimisation.png",
+        bbox_inches="tight",
+        pad_inches=0.1,
     )
 
 
