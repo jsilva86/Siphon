@@ -986,29 +986,31 @@ def generate_optimized_charts():
 
 
 if __name__ == "__main__":
-    # # to filter contracts that don't compile with Solidty version 0.8.0
-    # try_compile_and_move()
+    # to filter contracts that don't compile with Solidty version 0.8.0
+    try_compile_and_move()
 
-    # # gather dataset statistics
-    # contracts_and_functions()
+    # gather dataset statistics
+    contracts_and_functions()
 
-    # # exec Siphon on the dataset
-    # exec_on_func_basis()
+    # exec Siphon on the dataset
+    exec_on_func_basis()
 
-    # coersion_fix()
+    coersion_fix()
 
-    # # gather analysis statistics
-    # successfully_executed()
+    # gather analysis statistics
+    successfully_executed()
 
-    # # count detected patterns
-    # count_patterns_and_optimized_functions()
+    # count detected patterns
+    count_patterns_and_optimized_functions()
 
-    # # count optimized patterns
-    # compile_optimized()
+    # count optimized patterns
+    compile_optimized()
 
     # detection sampling
-    # detection_sampling()
+    detection_sampling()
 
-    # generate_find_charts()
+    # generate charts for the finding phase
+    generate_find_charts()
 
+    # generate charts for the optimisation phase
     generate_optimized_charts()
