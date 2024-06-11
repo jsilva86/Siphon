@@ -108,6 +108,7 @@ class CFG:
                 self._filename,
                 self.contract.name,
                 self.function.name,
+                self.function.name,
                 self.head,
             )
 
@@ -412,7 +413,9 @@ class CFG:
         return self.contract.structures
 
 
-def cfg_to_dot(dir: str, sub_dir: str, filename: str, starting_node: Block):
+def cfg_to_dot(
+    dir: str, sub_dir: str, base_dir: str, filename: str, starting_node: Block
+):
     """
         Export the function to a dot file. Useful for debugging.
     Args:
@@ -421,7 +424,7 @@ def cfg_to_dot(dir: str, sub_dir: str, filename: str, starting_node: Block):
 
     # Create the directory if it doesn't exist
     dir_path = os.path.join(
-        "output", dir.replace(".sol", ""), sub_dir, filename, "cfgs"
+        "output", dir.replace(".sol", ""), sub_dir, base_dir, "cfgs"
     )
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)

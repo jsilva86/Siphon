@@ -125,6 +125,7 @@ class Optimizer:
 
         if self.export_cfg:
             cfg_to_dot(
+                self.filename,
                 self.cfg.contract.name,
                 self.cfg.function.name,
                 f"{self.cfg.function.name}-optimized",

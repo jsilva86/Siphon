@@ -86,10 +86,15 @@ if [[ -z "$filename" ]]; then
     usage
 fi
 
+# Build the arguments array for the Python script
+python_args=("-f" "$filename")
+[[ -n "$contract_name" ]] && python_args+=("-c" "$contract_name")
+[[ -n "$function_name" ]] && python_args+=("-fn" "$function_name")
+[[ -n "$export_cfgs" ]] && python_args+=("-e")
+[[ -n "$verbose" ]] && python_args+=("-v")
+
 # Execute the Python program with the provided arguments
-python3 siphon.py -f "$filename" -c "$contract_name" -fn "$function_name" \
-    $(if [[ -n "$export_cfgs" ]]; then echo "-e"; fi) \
-    $(if [[ -n "$verbose" ]]; then echo "-v"; fi)
+python3 siphon.py "${python_args[@]}"
 
 # Check if format argument is provided
 if [[ -n "$format" ]]; then

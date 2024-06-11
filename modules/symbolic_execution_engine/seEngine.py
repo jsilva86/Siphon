@@ -250,8 +250,6 @@ class SymbolicExecutionEngine:
             block, instruction, symbolic_table, loop_scope
         )
 
-        print(Int(str(None)))
-
         # if(something) --> if(something == true)
         if isinstance(if_operation, ArithRef):
             coersed_condition = Bool(str(if_operation))
