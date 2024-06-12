@@ -87,7 +87,10 @@ class CodeGenerator:
         # FIXME: some variables omit the type...
         for arg in [str(t) for t in self.cfg.function.parameters]:
             variable = self.cfg.function.variables_as_dict.get(arg)
-            formatted_arg = f"{str(variable.type)} {variable.location} {arg}"
+            if variable.type.is_dynamic:
+                formatted_arg = f"{str(variable.type)} {variable.location} {arg}"
+            else:
+                formatted_arg = f"{str(variable.type)} {arg}"
             func_args.append(formatted_arg)
 
         return f"( {', '.join(func_args)} )"
